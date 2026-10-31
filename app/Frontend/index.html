@@ -2,15 +2,15 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="GHANIMA SaaS - Sistema Integral de Comandas Táctil, Plano de Mesas, KDS y Facturación COP para Restaurante-Bar">
-  <meta name="theme-color" content="#0a0f1d">
-  <title>GHANIMA POS | Sistema de Comandas Restaurante-Bar</title>
+  <meta name="theme-color" content="#080706">
+  <title>GHANIMA POS | Luxury Resto-Bar & Mixology Suite</title>
 
-  <!-- Google Fonts: Outfit & Inter -->
+  <!-- Google Fonts: Cinzel, Cormorant Garamond, Outfit & Plus Jakarta Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Estilos Principales -->
   <link rel="stylesheet" href="index.css">
@@ -23,33 +23,47 @@
          ========================================== -->
     <header class="app-header" role="banner">
       <div class="brand-wrapper">
-        <div class="brand-logo-icon" aria-hidden="true">🍸</div>
+        <div class="brand-logo-icon" aria-hidden="true">
+          <span class="crest-symbol">🍸</span>
+        </div>
         <div class="brand-text-block">
           <h1>GHANIMA</h1>
-          <span class="brand-badge">SaaS RESTO-BAR</span>
+          <span class="brand-badge">✦ LUXURY RESTO-BAR ✦</span>
         </div>
       </div>
 
-      <!-- Selector de Vistas / Módulos -->
+      <!-- Selector de Vistas / Módulos (Barra Superior en Desktop / Dock Nativo en Móvil) -->
       <nav class="view-nav" role="navigation" aria-label="Navegación de módulos">
         <button id="nav-btn-tables" class="nav-tab-btn active" data-view="view-tables">
-          <span>🗺️</span> Plano Mesas
+          <span class="nav-icon" aria-hidden="true">🗺️</span>
+          <span class="nav-label-full">Plano Mesas</span>
+          <span class="nav-label-short">Mesas</span>
         </button>
         <button id="nav-btn-pos" class="nav-tab-btn" data-view="view-pos">
-          <span>📝</span> TPV Comanda
+          <span class="nav-icon" aria-hidden="true">📝</span>
+          <span class="nav-label-full">TPV Comanda</span>
+          <span class="nav-label-short">TPV</span>
         </button>
         <button id="nav-btn-kds" class="nav-tab-btn" data-view="view-kds">
-          <span>👨‍🍳</span> KDS Cocina/Barra
+          <span class="nav-icon" aria-hidden="true">👨‍🍳</span>
+          <span class="nav-label-full">KDS Cocina/Barra</span>
+          <span class="nav-label-short">KDS</span>
           <span id="kds-pending-badge" class="badge-pill">0</span>
         </button>
         <button id="nav-btn-catalog" class="nav-tab-btn" data-view="view-catalog">
-          <span>📦</span> Catálogo Menú
+          <span class="nav-icon" aria-hidden="true">📦</span>
+          <span class="nav-label-full">Catálogo Menú</span>
+          <span class="nav-label-short">Menú</span>
         </button>
         <button id="nav-btn-billing" class="nav-tab-btn" data-view="view-billing">
-          <span>🧾</span> Facturación COP
+          <span class="nav-icon" aria-hidden="true">🧾</span>
+          <span class="nav-label-full">Facturación COP</span>
+          <span class="nav-label-short">Cobro</span>
         </button>
         <button id="nav-btn-audit" class="nav-tab-btn" data-view="view-audit">
-          <span>🔒</span> Cierre Ciego
+          <span class="nav-icon" aria-hidden="true">🔒</span>
+          <span class="nav-label-full">Cierre Ciego</span>
+          <span class="nav-label-short">Cierre</span>
         </button>
       </nav>
 
@@ -134,16 +148,16 @@
               </div>
 
               <!-- Selector Rápido de Mesa -->
-              <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <label for="pos-table-select" style="font-size: 0.85rem; color: var(--text-muted);">Mesa:</label>
-                <select id="pos-table-select" style="min-height: 40px; padding: 6px 12px;">
+              <div class="pos-table-select-wrap">
+                <label for="pos-table-select" class="field-inline-label">Mesa:</label>
+                <select id="pos-table-select">
                   <option value="">Seleccionar mesa...</option>
                 </select>
               </div>
             </div>
 
             <!-- Filtros de Estación / Categoría -->
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+            <div class="pos-toolbar-row">
               <div class="pos-station-filter">
                 <button class="station-btn active" data-station="ALL">🍽️🍸 Todo el Menú</button>
                 <button class="station-btn kitchen" data-station="KITCHEN">🍳 Cocina (Platos)</button>
@@ -151,8 +165,8 @@
               </div>
 
               <!-- Búsqueda Rápida Táctil -->
-              <div style="position: relative; min-width: 240px;">
-                <input type="text" id="pos-search-input" placeholder="🔍 Buscar plato o cóctel..." style="width: 100%; min-height: 40px; padding-left: 12px;">
+              <div class="pos-search-box">
+                <input type="text" id="pos-search-input" placeholder="🔍 Buscar plato o cóctel de autor...">
               </div>
             </div>
 
@@ -160,6 +174,18 @@
             <div id="products-grid" class="products-grid">
               <!-- Renderizado dinámico desde app.js -->
             </div>
+
+            <!-- Barra Flotante de Acceso Rápido a Comanda (Visible en Móvil/Tablet) -->
+            <button type="button" id="pos-mobile-cart-jump" class="pos-mobile-cart-bar" aria-label="Ir al resumen de comanda">
+              <span class="pos-mobile-cart-left">
+                <span class="pos-mobile-cart-icon">🛎️</span>
+                <span>Ver Comanda Actual</span>
+              </span>
+              <span class="pos-mobile-cart-right">
+                <strong id="pos-mobile-cart-total">$ 0 COP</strong>
+                <span class="pos-mobile-cart-arrow">↓</span>
+              </span>
+            </button>
           </div>
 
           <!-- Panel Derecho: Comanda Lateral (Carrito) -->
@@ -213,11 +239,11 @@
             <p style="color: var(--text-muted); font-size: 0.85rem;">Monitoreo de tiempos de despacho y preparación en línea</p>
           </div>
 
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <div class="kds-station-toolbar">
             <div class="zone-filter-bar">
-              <button class="kds-filter-btn active" data-station="ALL" style="min-height: 40px; padding: 0.4rem 1rem; border-radius: var(--radius-lg); font-weight: 600; color: var(--text-muted);">Todas</button>
-              <button class="kds-filter-btn" data-station="KITCHEN" style="min-height: 40px; padding: 0.4rem 1rem; border-radius: var(--radius-lg); font-weight: 600; color: var(--text-muted);">🍳 Cocina</button>
-              <button class="kds-filter-btn" data-station="BAR" style="min-height: 40px; padding: 0.4rem 1rem; border-radius: var(--radius-lg); font-weight: 600; color: var(--text-muted);">🍸 Barra</button>
+              <button class="kds-filter-btn active" data-station="ALL">Todas</button>
+              <button class="kds-filter-btn" data-station="KITCHEN">🍳 Cocina</button>
+              <button class="kds-filter-btn" data-station="BAR">🍸 Barra</button>
             </div>
           </div>
         </div>
@@ -276,9 +302,9 @@
           </div>
 
           <!-- Selector de Mesa a Facturar -->
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <label for="billing-table-select" style="font-weight: 600; color: var(--text-muted);">Mesa a Facturar:</label>
-            <select id="billing-table-select" style="min-width: 200px;">
+          <div class="billing-select-wrap">
+            <label for="billing-table-select" class="field-inline-label">Mesa a Facturar:</label>
+            <select id="billing-table-select">
               <option value="">Seleccione mesa activa...</option>
             </select>
           </div>
@@ -303,7 +329,7 @@
               </div>
 
               <!-- Desglose de Totales -->
-              <div style="border-top: 1px dashed #334155; padding-top: 0.75rem; display: flex; flex-direction: column; gap: 0.35rem;">
+              <div style="border-top: 1px dashed var(--border-medium); padding-top: 0.75rem; display: flex; flex-direction: column; gap: 0.35rem;">
                 <div class="invoice-summary-line">
                   <span>SUBTOTAL:</span>
                   <span id="inv-subtotal-val">$ 0 COP</span>
@@ -349,10 +375,10 @@
 
             <!-- Panel División Equitativa -->
             <div id="split-panel-equal" style="display: none; margin-bottom: 1rem;">
-              <div style="display: flex; align-items: center; gap: 1rem;">
+              <div class="split-equal-controls">
                 <label for="split-equal-diners" style="font-size: 0.88rem; color: var(--text-muted);">Número de personas:</label>
-                <input type="number" id="split-equal-diners" value="2" min="2" max="20" style="width: 80px; text-align: center; height: 48px;">
-                <button id="btn-calc-split-equal" class="btn-table-action" style="max-width: 140px; min-height: 48px;">Calcular</button>
+                <input type="number" id="split-equal-diners" value="2" min="2" max="20" style="width: 84px; text-align: center; height: 48px;">
+                <button id="btn-calc-split-equal" class="btn-table-action primary" style="max-width: 150px; min-height: 48px;">Calcular</button>
               </div>
               <div id="split-equal-result" style="margin-top: 0.75rem; font-family: var(--font-display); font-size: 1.1rem; color: var(--accent-gold); font-weight: 700;"></div>
             </div>
@@ -407,7 +433,7 @@
             </div>
 
             <!-- Botón de Cierre de Factura -->
-            <button id="btn-execute-checkout" class="btn-submit-order" style="background: linear-gradient(135deg, #f59e0b, #d97706); margin-top: auto;">
+            <button id="btn-execute-checkout" class="btn-submit-order" style="margin-top: auto; width: 100%;">
               <span>✅</span> Registrar Pago y Liberar Mesa
             </button>
           </div>
@@ -449,7 +475,7 @@
               </div>
             </div>
 
-            <button type="button" id="btn-submit-blind-close" class="btn-submit-order" style="width: 100%; background: linear-gradient(135deg, #ef4444, #b91c1c);">
+            <button type="button" id="btn-submit-blind-close" class="btn-submit-order btn-vault-close" style="width: 100%;">
               <span>🔒</span> Ejecutar Cierre Ciego de Turno
             </button>
           </form>
@@ -627,7 +653,7 @@
               <label for="product-form-name" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Nombre del Producto / Plato / Bebida:</label>
               <input type="text" id="product-form-name" placeholder="Ej: Hamburguesa Artesanal Angus" required style="width: 100%;">
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div class="form-grid-2col">
               <div>
                 <label for="product-form-category" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Categoría:</label>
                 <input type="text" id="product-form-category" placeholder="Ej: Carnes, Cócteles..." required style="width: 100%;">
@@ -640,7 +666,7 @@
                 </select>
               </div>
             </div>
-            <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 0.75rem; align-items: flex-end;">
+            <div class="form-grid-price-avail">
               <div>
                 <label for="product-form-price" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Precio de Venta COP ($):</label>
                 <input type="number" id="product-form-price" min="0" step="500" placeholder="Ej: 35000" required style="width: 100%;">
@@ -673,5 +699,23 @@
 
   <!-- Lógica Interactiva Frontend -->
   <script src="app.js"></script>
+  <script>
+    (function () {
+      var jumpBtn = document.getElementById('pos-mobile-cart-jump');
+      var cartEl = document.querySelector('.pos-order-cart');
+      var srcTotal = document.getElementById('cart-total-cop');
+      var dstTotal = document.getElementById('pos-mobile-cart-total');
+      if (jumpBtn && cartEl) {
+        jumpBtn.addEventListener('click', function () {
+          cartEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
+      if (srcTotal && dstTotal && window.MutationObserver) {
+        var sync = function () { dstTotal.textContent = srcTotal.textContent || '$ 0 COP'; };
+        sync();
+        new MutationObserver(sync).observe(srcTotal, { childList: true, characterData: true, subtree: true });
+      }
+    })();
+  </script>
 </body>
 </html>
