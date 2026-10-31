@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="COMMANDA SaaS - Sistema Integral de Comandas Táctil, Plano de Mesas, KDS y Facturación COP para Restaurante-Bar">
+  <meta name="theme-color" content="#0a0f1d">
+  <title>COMMANDA POS | Sistema de Comandas Restaurante-Bar</title>
+
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Estilos Principales -->
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- ==========================================
+         BARRA SUPERIOR (HEADER GLASSMORPHISM)
+         ========================================== -->
+    <header class="app-header" role="banner">
+      <div class="brand-wrapper">
+        <div class="brand-logo-icon" aria-hidden="true">🍸</div>
+        <div class="brand-text-block">
+          <h1>COMMANDA</h1>
+          <span class="brand-badge">SaaS RESTO-BAR</span>
+        </div>
+      </div>
+
+      <!-- Selector de Vistas / Módulos -->
+      <nav class="view-nav" role="navigation" aria-label="Navegación de módulos">
+        <button id="nav-btn-tables" class="nav-tab-btn active" data-view="view-tables">
+          <span>🗺️</span> Plano Mesas
+        </button>
+        <button id="nav-btn-pos" class="nav-tab-btn" data-view="view-pos">
+          <span>📝</span> TPV Comanda
+        </button>
+        <button id="nav-btn-kds" class="nav-tab-btn" data-view="view-kds">
+          <span>👨‍🍳</span> KDS Cocina/Barra
+          <span id="kds-pending-badge" class="badge-pill">0</span>
+        </button>
+        <button id="nav-btn-billing" class="nav-tab-btn" data-view="view-billing">
+          <span>🧾</span> Facturación COP
+        </button>
+        <button id="nav-btn-audit" class="nav-tab-btn" data-view="view-audit">
+          <span>🔒</span> Cierre Ciego
+        </button>
+      </nav>
+
+      <!-- Estado SSE, Reloj y Usuario -->
+      <div class="header-status-panel">
+        <div id="sse-status-badge" class="sse-pill" title="Estado de Conexión en Tiempo Real">
+          <span class="pulse-dot"></span>
+          <span id="sse-status-text">SSE En Línea</span>
+        </div>
+        <div id="digital-clock" class="clock-display" aria-live="off">--:--:--</div>
+        <div class="user-tag" title="Mesero en Turno">
+          <div class="avatar" id="current-user-avatar">C</div>
+          <span id="current-user-name">Carlos Mesero</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ==========================================
+         CONTENEDOR DE VISTAS (SPA)
+         ========================================== -->
+    <main class="main-view-container" role="main">
+
+      <!-- ==========================================
+           VISTA 1: PLANO DE MESAS
+           ========================================== -->
+      <section id="view-tables" class="view-section active" aria-labelledby="tables-title">
+        <div class="module-header-row">
+          <div>
+            <h2 id="tables-title">Plano Interactivo de Mesas</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">Gestión de turnos, comensales y estados en tiempo real</p>
+          </div>
+
+          <!-- Selector de Zonas -->
+          <div class="zone-filter-bar" role="group" aria-label="Filtro por zona">
+            <button class="zone-btn active" data-zone="ALL">Todas</button>
+            <button class="zone-btn" data-zone="Salón Principal">Salón Principal</button>
+            <button class="zone-btn" data-zone="Terraza">Terraza</button>
+            <button class="zone-btn" data-zone="Barra VIP">Barra VIP</button>
+          </div>
+
+          <!-- Leyenda de Estados Cromáticos -->
+          <div class="status-legend-bar">
+            <div class="legend-item"><span class="legend-dot available"></span> Disponible</div>
+            <div class="legend-item"><span class="legend-dot occupied"></span> Ocupada</div>
+            <div class="legend-item"><span class="legend-dot paying"></span> Por Cobrar</div>
+            <div class="legend-item"><span class="legend-dot reserved"></span> Reservada</div>
+            <div class="legend-item"><span class="legend-dot cleaning"></span> Limpieza</div>
+          </div>
+        </div>
+
+        <!-- Grid de Mesas Táctil -->
+        <div id="tables-grid" class="tables-grid">
+          <!-- Renderizado dinámico desde app.js -->
+        </div>
+      </section>
+
+      <!-- ==========================================
+           VISTA 2: TPV TOMA DE COMANDAS
+           ========================================== -->
+      <section id="view-pos" class="view-section" aria-labelledby="pos-title">
+        <div class="pos-layout">
+          
+          <!-- Panel Izquierdo: Catálogo y Filtros -->
+          <div class="pos-catalog-panel">
+            <!-- Header Contextual de Mesa Activa -->
+            <div class="pos-table-header">
+              <div class="pos-active-table-info">
+                <span id="pos-active-table-number" class="pos-table-badge">Mesa #--</span>
+                <div>
+                  <h3 id="pos-active-session-label">Seleccione una mesa para comanda</h3>
+                  <p id="pos-active-session-meta" style="color: var(--text-muted); font-size: 0.82rem;">Mesero: -- | Comensales: --</p>
+                </div>
+              </div>
+
+              <!-- Selector Rápido de Mesa -->
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <label for="pos-table-select" style="font-size: 0.85rem; color: var(--text-muted);">Mesa:</label>
+                <select id="pos-table-select" style="min-height: 40px; padding: 6px 12px;">
+                  <option value="">Seleccionar mesa...</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Filtros de Estación / Categoría -->
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+              <div class="pos-station-filter">
+                <button class="station-btn active" data-station="ALL">🍽️🍸 Todo el Menú</button>
+                <button class="station-btn kitchen" data-station="KITCHEN">🍳 Cocina (Platos)</button>
+                <button class="station-btn bar" data-station="BAR">🍸 Barra (Bebidas)</button>
+              </div>
+
+              <!-- Búsqueda Rápida Táctil -->
+              <div style="position: relative; min-width: 240px;">
+                <input type="text" id="pos-search-input" placeholder="🔍 Buscar plato o cóctel..." style="width: 100%; min-height: 40px; padding-left: 12px;">
+              </div>
+            </div>
+
+            <!-- Cuadrícula de Productos -->
+            <div id="products-grid" class="products-grid">
+              <!-- Renderizado dinámico desde app.js -->
+            </div>
+          </div>
+
+          <!-- Panel Derecho: Comanda Lateral (Carrito) -->
+          <aside class="pos-order-cart" aria-label="Comanda actual">
+            <div class="cart-header">
+              <div>
+                <h3 style="font-size: 1.15rem;">Nueva Comanda</h3>
+                <span id="cart-station-route" style="font-size: 0.75rem; color: var(--accent-gold); font-weight: 600;">Enrutamiento Automático</span>
+              </div>
+              <button id="btn-clear-cart" title="Vaciar Comanda">Vaciar</button>
+            </div>
+
+            <!-- Lista de Ítems en Comanda -->
+            <div id="cart-items-container" class="cart-items-container">
+              <div style="text-align: center; color: var(--text-dim); margin-top: 2rem; font-size: 0.9rem;">
+                No hay productos en la comanda.<br>Toca un producto para agregarlo.
+              </div>
+            </div>
+
+            <!-- Totales de la Orden en COP -->
+            <div class="cart-totals-section">
+              <div class="cart-total-row">
+                <span>Subtotal Neto</span>
+                <span id="cart-subtotal-cop">$ 0 COP</span>
+              </div>
+              <div class="cart-total-row">
+                <span>Impoconsumo (8% Col)</span>
+                <span id="cart-tax-cop">$ 0 COP</span>
+              </div>
+              <div class="cart-total-row grand-total">
+                <span>Total Estimado</span>
+                <span id="cart-total-cop" class="val">$ 0 COP</span>
+              </div>
+
+              <!-- Botón Táctil de Enrutamiento y Envío -->
+              <button id="btn-submit-order" class="btn-submit-order" disabled>
+                <span>🚀</span> Enviar a Cocina / Barra
+              </button>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ==========================================
+           VISTA 3: KDS COCINA & BARRA
+           ========================================== -->
+      <section id="view-kds" class="view-section" aria-labelledby="kds-title">
+        <div class="kds-filter-bar">
+          <div>
+            <h2 id="kds-title">KDS - Pantalla de Producción</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">Monitoreo de tiempos de despacho y preparación en línea</p>
+          </div>
+
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <div class="zone-filter-bar">
+              <button class="kds-filter-btn active" data-station="ALL" style="min-height: 40px; padding: 0.4rem 1rem; border-radius: var(--radius-lg); font-weight: 600; color: var(--text-muted);">Todas</button>
+              <button class="kds-filter-btn" data-station="KITCHEN" style="min-height: 40px; padding: 0.4rem 1rem; border-radius: var(--radius-lg); font-weight: 600; color: var(--text-muted);">🍳 Cocina</button>
+              <button class="kds-filter-btn" data-station="BAR" style="min-height: 40px; padding: 0.4rem 1rem; border-radius: var(--radius-lg); font-weight: 600; color: var(--text-muted);">🍸 Barra</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cuadrícula de Tickets KDS -->
+        <div id="kds-orders-grid" class="kds-orders-grid">
+          <!-- Renderizado dinámico desde app.js -->
+        </div>
+      </section>
+
+      <!-- ==========================================
+           VISTA 4: FACTURACIÓN & COBRO COP
+           ========================================== -->
+      <section id="view-billing" class="view-section" aria-labelledby="billing-title">
+        <div class="module-header-row">
+          <div>
+            <h2 id="billing-title">Facturación y Cobro COP</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">Normativa tributaria colombiana: Impoconsumo 8% y Propina Voluntaria 10%</p>
+          </div>
+
+          <!-- Selector de Mesa a Facturar -->
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <label for="billing-table-select" style="font-weight: 600; color: var(--text-muted);">Mesa a Facturar:</label>
+            <select id="billing-table-select" style="min-width: 200px;">
+              <option value="">Seleccione mesa activa...</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="billing-layout">
+          <!-- Columna Izquierda: Previsualización de Factura Legal -->
+          <div class="billing-card">
+            <h3 style="margin-bottom: 1rem;">Previsualización de Factura</h3>
+
+            <div class="invoice-preview-box">
+              <div class="invoice-header-legal">
+                <strong>COMMANDA RESTO-BAR S.A.S.</strong><br>
+                NIT: 901.834.521-4 | Régimen Impoconsumo<br>
+                Medellín, Antioquia - Colombia<br>
+                <span id="inv-table-meta">Mesa: -- | Sesión: --</span>
+              </div>
+
+              <!-- Lista de ítems facturados -->
+              <div id="invoice-items-list" style="display: flex; flex-direction: column; gap: 0.35rem; margin: 0.5rem 0;">
+                <div style="text-align: center; color: var(--text-dim); padding: 1rem;">Selecciona una mesa con orden activa</div>
+              </div>
+
+              <!-- Desglose Legal de Impuestos -->
+              <div style="border-top: 1px dashed #334155; padding-top: 0.75rem; display: flex; flex-direction: column; gap: 0.35rem;">
+                <div class="invoice-summary-line">
+                  <span>SUBTOTAL NETO:</span>
+                  <span id="inv-subtotal-val">$ 0 COP</span>
+                </div>
+                <div class="invoice-summary-line">
+                  <span>IMPOCONSUMO (8%):</span>
+                  <span id="inv-tax-val">$ 0 COP</span>
+                </div>
+                <div class="invoice-summary-line">
+                  <span>PROPINA SUGERIDA (10%):</span>
+                  <span id="inv-tip-val">$ 0 COP</span>
+                </div>
+                <div class="invoice-total-highlight">
+                  <span>TOTAL A PAGAR:</span>
+                  <span id="inv-grand-total-val">$ 0 COP</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Toggle de Propina Voluntaria -->
+            <div class="tip-toggle-box">
+              <div>
+                <strong>Propina Voluntaria Sugerida (10%)</strong>
+                <p style="font-size: 0.78rem; color: var(--text-muted);">El comensal decide libremente si acepta o rechaza la propina</p>
+              </div>
+              <label class="switch" aria-label="Aceptar propina voluntaria">
+                <input type="checkbox" id="tip-switch" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Columna Derecha: División de Cuentas y Métodos de Pago -->
+          <div class="billing-card">
+            <h3 style="margin-bottom: 1rem;">Opciones de Pago y División</h3>
+
+            <!-- Pestañas de División -->
+            <div class="split-tabs-nav" role="tablist">
+              <button id="split-tab-none" class="split-tab-btn active">Cuenta Única</button>
+              <button id="split-tab-equal" class="split-tab-btn">Equitativa (Split Equal)</button>
+              <button id="split-tab-items" class="split-tab-btn">Por Ítems (Split Items)</button>
+            </div>
+
+            <!-- Panel División Equitativa -->
+            <div id="split-panel-equal" style="display: none; margin-bottom: 1rem;">
+              <div style="display: flex; align-items: center; gap: 1rem;">
+                <label for="split-equal-diners" style="font-size: 0.88rem; color: var(--text-muted);">Número de personas:</label>
+                <input type="number" id="split-equal-diners" value="2" min="2" max="20" style="width: 80px; text-align: center; height: 48px;">
+                <button id="btn-calc-split-equal" class="btn-table-action" style="max-width: 140px; min-height: 48px;">Calcular</button>
+              </div>
+              <div id="split-equal-result" style="margin-top: 0.75rem; font-family: var(--font-display); font-size: 1.1rem; color: var(--accent-gold); font-weight: 700;"></div>
+            </div>
+
+            <!-- Panel División por Ítems -->
+            <div id="split-panel-items" style="display: none; margin-bottom: 1.25rem;">
+              <div style="background: var(--bg-surface); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 0.75rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem;">
+                  <label for="split-items-diners-count" style="font-size: 0.88rem; font-weight: 600; color: var(--text-muted);">Comensales en la mesa:</label>
+                  <div style="display: flex; align-items: center; gap: 0.4rem;">
+                    <button type="button" id="btn-split-items-dec" class="btn-qty qty-btn" title="Menos comensales">-</button>
+                    <input type="number" id="split-items-diners-count" value="2" min="2" max="10" readonly style="width: 50px; text-align: center; font-weight: 700; height: 48px;">
+                    <button type="button" id="btn-split-items-inc" class="btn-qty qty-btn" title="Más comensales">+</button>
+                  </div>
+                </div>
+                <div style="font-size: 0.82rem; color: var(--text-dim); margin-bottom: 0.75rem;">
+                  Asigna cada producto consumido al comensal o asiento correspondiente:
+                </div>
+                <div id="split-items-assignment-list" style="display: flex; flex-direction: column; gap: 0.6rem; max-height: 260px; overflow-y: auto;">
+                  <!-- Filas dinámicas de ítems a asignar -->
+                </div>
+                <button type="button" id="btn-calc-split-items" class="btn-table-action primary" style="width: 100%; margin-top: 1rem; min-height: 48px;">
+                  🧾 Calcular Subfacturas Individuales
+                </button>
+              </div>
+
+              <!-- Contenedor de subfacturas individuales calculadas -->
+              <div id="split-items-results-container" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>
+            </div>
+
+            <!-- Selector de Método de Pago -->
+            <div style="margin-top: 0.5rem;">
+              <label style="font-size: 0.88rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Medio de Pago:</label>
+              <div class="payment-methods-grid">
+                <button class="btn-payment-method active" data-method="CASH">
+                  <span style="font-size: 1.3rem;">💵</span> Efectivo
+                </button>
+                <button class="btn-payment-method" data-method="CARD">
+                  <span style="font-size: 1.3rem;">💳</span> Datáfono
+                </button>
+                <button class="btn-payment-method" data-method="TRANSFER">
+                  <span style="font-size: 1.3rem;">📱</span> Nequi / Davi
+                </button>
+              </div>
+            </div>
+
+            <!-- Calculadora de Cambio / Vueltas en Efectivo -->
+            <div id="cash-calculator-box" style="margin-bottom: 1.25rem;">
+              <label for="cash-received-input" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Efectivo Recibido (COP):</label>
+              <input type="number" id="cash-received-input" placeholder="Ej: 100000" style="width: 100%;">
+              <div id="cash-change-display" style="font-family: var(--font-display); font-weight: 700; margin-top: 0.5rem; color: var(--color-available); font-size: 1rem;">Cambio: $ 0 COP</div>
+            </div>
+
+            <!-- Botón de Cierre de Factura -->
+            <button id="btn-execute-checkout" class="btn-submit-order" style="background: linear-gradient(135deg, #f59e0b, #d97706); margin-top: auto;">
+              <span>✅</span> Registrar Pago y Liberar Mesa
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================
+           VISTA 5: AUDITORÍA Y CIERRE CIEGO
+           ========================================== -->
+      <section id="view-audit" class="view-section" aria-labelledby="audit-title">
+        <div class="audit-container">
+          <div style="text-align: center; margin-bottom: 1.5rem;">
+            <h2 id="audit-title">Auditoría de Turno & Cierre Ciego</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">
+              El cajero declara los fondos físicos contados sin visualizar los totales calculados por el sistema para garantizar la integridad financiera.
+            </p>
+          </div>
+
+          <form id="form-blind-close" onsubmit="return false;">
+            <div class="blind-input-group">
+              <div class="audit-field">
+                <label for="audit-cash-declared">💵 Efectivo Físico en Caja (COP)</label>
+                <input type="number" id="audit-cash-declared" placeholder="Monto total en billetes y monedas" required min="0" step="50">
+              </div>
+
+              <div class="audit-field">
+                <label for="audit-card-declared">💳 Lote de Datáfono / Vouchers (COP)</label>
+                <input type="number" id="audit-card-declared" placeholder="Total según tirilla de datáfono" required min="0" step="50">
+              </div>
+
+              <div class="audit-field">
+                <label for="audit-transfer-declared">📱 Transferencias Nequi / Daviplata (COP)</label>
+                <input type="number" id="audit-transfer-declared" placeholder="Total según comprobantes" required min="0" step="50">
+              </div>
+
+              <div class="audit-field">
+                <label for="audit-notes">📝 Observaciones de Turno</label>
+                <input type="text" id="audit-notes" placeholder="Ej: Sin novedades, propinas repartidas">
+              </div>
+            </div>
+
+            <button type="button" id="btn-submit-blind-close" class="btn-submit-order" style="width: 100%; background: linear-gradient(135deg, #ef4444, #b91c1c);">
+              <span>🔒</span> Ejecutar Cierre Ciego de Turno
+            </button>
+          </form>
+
+          <!-- Tarjeta de Resultados del Cierre (Revelación) -->
+          <div id="audit-results-card" class="audit-result-card">
+            <h3 style="margin-bottom: 0.75rem;">Dictamen de Cuadratura de Caja</h3>
+            <div id="audit-results-content">
+              <!-- Renderizado dinámico tras el arqueo -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ==========================================
+         MODALES INTERACTIVOS
+         ========================================== -->
+
+    <!-- Modal 1: Apertura de Mesa -->
+    <div id="modal-open-table" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-open-table-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="modal-open-table-title">Abrir Mesa #<span id="modal-table-number-span"></span></h3>
+          <button class="modal-close-btn" data-close-modal="modal-open-table">&times;</button>
+        </div>
+        <form id="form-open-table" onsubmit="return false;">
+          <input type="hidden" id="modal-open-table-id">
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div>
+              <label for="modal-waiter-name" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Mesero Asignado:</label>
+              <input type="text" id="modal-waiter-name" value="Carlos Mesero" style="width: 100%;">
+            </div>
+            <div>
+              <label for="modal-diner-count" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Número de Comensales:</label>
+              <input type="number" id="modal-diner-count" value="2" min="1" max="20" style="width: 100%;">
+            </div>
+            <button type="button" id="btn-confirm-open-table" class="btn-submit-order" style="margin-top: 0.5rem;">
+              <span>🚀</span> Confirmar Apertura y Crear Sesión
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal 2: Modificadores Rápidos de Producto -->
+    <div id="modal-modifiers" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-mod-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <h3 id="modal-mod-title">Personalizar Producto</h3>
+            <p id="modal-mod-product-name" style="color: var(--accent-gold); font-size: 0.88rem; font-weight: 600;"></p>
+          </div>
+          <button class="modal-close-btn" data-close-modal="modal-modifiers">&times;</button>
+        </div>
+
+        <div>
+          <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Modificadores Rápidos:</label>
+          <div id="mod-chips-container" class="modifier-chips-group">
+            <button type="button" class="chip-btn" data-mod="Término Azul">🥩 Término Azul</button>
+            <button type="button" class="chip-btn" data-mod="Término Medio">🥩 Término Medio</button>
+            <button type="button" class="chip-btn" data-mod="Término 3/4">🥩 Término 3/4</button>
+            <button type="button" class="chip-btn" data-mod="Bien Cocido">🥩 Bien Cocido</button>
+            <button type="button" class="chip-btn" data-mod="Sin cebolla">🧅 Sin cebolla</button>
+            <button type="button" class="chip-btn" data-mod="Sin sal">🧂 Sin sal</button>
+            <button type="button" class="chip-btn" data-mod="Mucho hielo">🧊 Mucho hielo</button>
+            <button type="button" class="chip-btn" data-mod="Sin hielo">🧊 Sin hielo</button>
+            <button type="button" class="chip-btn" data-mod="Limón extra">🍋 Limón extra</button>
+          </div>
+        </div>
+
+        <div>
+          <label for="modal-mod-notes" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Nota especial:</label>
+          <input type="text" id="modal-mod-notes" placeholder="Ej: Salsa aparte, comensal alérgico..." style="width: 100%;">
+        </div>
+
+        <button type="button" id="btn-confirm-add-with-mod" class="btn-submit-order" style="margin-top: 0.5rem;">
+          <span>➕</span> Agregar a la Comanda
+        </button>
+      </div>
+    </div>
+
+    <!-- Contenedor de Alertas Toast Flotantes -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  </div>
+
+  <!-- Lógica Interactiva Frontend -->
+  <script src="app.js"></script>
+</body>
+</html>

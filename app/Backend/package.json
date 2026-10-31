@@ -1,0 +1,31 @@
+{
+  "name": "comanda-backend",
+  "version": "1.0.0",
+  "description": "Backend para Sistema de Comandas SaaS (Restaurante-Bar) con persistencia PostgreSQL / Supabase y lógica COP",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "db:init": "node src/db/init.js",
+    "db:seed": "node src/db/seed.js",
+    "test": "node --test tests/test-business-logic.test.js"
+  },
+  "keywords": [
+    "restaurant",
+    "pos",
+    "comanda",
+    "colombia-cop",
+    "impoconsumo",
+    "postgresql",
+    "supabase"
+  ],
+  "author": "Backend Specialist",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pg": "^8.23.1"
+  }
+}
