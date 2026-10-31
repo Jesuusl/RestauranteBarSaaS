@@ -3,14 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="GHANIMA SaaS - Sistema Integral de Comandas Táctil, Plano de Mesas, KDS y Facturación COP para Restaurante-Bar">
-  <meta name="theme-color" content="#080706">
-  <title>GHANIMA POS | Luxury Resto-Bar & Mixology Suite</title>
+  <meta name="description" content="GHANIMA POS - Sistema Empresarial de Comandas Táctil, Plano de Mesas, KDS y Facturación COP para Restaurante-Bar">
+  <meta name="theme-color" id="meta-theme-color" content="#ffffff">
+  <title>GHANIMA POS | Sistema Empresarial Restaurante-Bar</title>
 
-  <!-- Google Fonts: Cinzel, Cormorant Garamond, Outfit & Plus Jakarta Sans -->
+  <!-- Google Fonts: Inter, Plus Jakarta Sans & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Inicializador de Tema Corporativo (Claro por defecto / Oscuro para Barra & KDS) -->
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('ghanima_theme');
+        var theme = (saved === 'dark' || saved === 'light') ? saved : 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+        var meta = document.getElementById('meta-theme-color');
+        if (meta) meta.setAttribute('content', theme === 'dark' ? '#0f141e' : '#ffffff');
+      } catch (_) {}
+    })();
+  </script>
 
   <!-- Estilos Principales -->
   <link rel="stylesheet" href="index.css">
@@ -19,16 +32,21 @@
   <div class="app-container">
     
     <!-- ==========================================
-         BARRA SUPERIOR (HEADER GLASSMORPHISM)
+         BARRA SUPERIOR CORPORATIVA
          ========================================== -->
     <header class="app-header" role="banner">
       <div class="brand-wrapper">
         <div class="brand-logo-icon" aria-hidden="true">
-          <span class="crest-symbol">🍸</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+            <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+            <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+            <path d="M14 17.5h7M17.5 14v7"></path>
+          </svg>
         </div>
         <div class="brand-text-block">
           <h1>GHANIMA</h1>
-          <span class="brand-badge">✦ LUXURY RESTO-BAR ✦</span>
+          <span class="brand-badge">CLOUD POS</span>
         </div>
       </div>
 
@@ -67,8 +85,12 @@
         </button>
       </nav>
 
-      <!-- Estado SSE, Reloj y Usuario -->
+      <!-- Tema, Estado SSE, Reloj y Usuario -->
       <div class="header-status-panel">
+        <button type="button" id="btn-theme-toggle" class="theme-toggle-btn" title="Cambiar entre Modo Claro (Siigo) y Modo Oscuro (Nocturno)" aria-label="Cambiar tema visual">
+          <span id="theme-toggle-icon" aria-hidden="true">🌙</span>
+          <span id="theme-toggle-label" class="theme-btn-label">Oscuro</span>
+        </button>
         <button type="button" id="btn-backend-config" class="backend-config-btn" title="Configurar URL del Backend">
           <span class="backend-btn-icon">⚙️</span>
           <span class="backend-btn-label">URL Backend</span>
@@ -166,7 +188,7 @@
 
               <!-- Búsqueda Rápida Táctil -->
               <div class="pos-search-box">
-                <input type="text" id="pos-search-input" placeholder="🔍 Buscar plato o cóctel de autor...">
+                <input type="text" id="pos-search-input" placeholder="🔍 Buscar producto o categoría...">
               </div>
             </div>
 
@@ -701,6 +723,7 @@
   <script src="app.js"></script>
   <script>
     (function () {
+      // 1. Acceso rápido a comanda flotante en móvil/tablet
       var jumpBtn = document.getElementById('pos-mobile-cart-jump');
       var cartEl = document.querySelector('.pos-order-cart');
       var srcTotal = document.getElementById('cart-total-cop');
@@ -714,6 +737,32 @@
         var sync = function () { dstTotal.textContent = srcTotal.textContent || '$ 0 COP'; };
         sync();
         new MutationObserver(sync).observe(srcTotal, { childList: true, characterData: true, subtree: true });
+      }
+
+      // 2. Selector de Tema Corporativo Claro (Siigo) / Oscuro (Barra & KDS)
+      var themeBtn = document.getElementById('btn-theme-toggle');
+      var themeIcon = document.getElementById('theme-toggle-icon');
+      var themeLabel = document.getElementById('theme-toggle-label');
+      var metaTheme = document.getElementById('meta-theme-color');
+
+      function applyThemeUI(theme) {
+        var isDark = theme === 'dark';
+        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+        if (themeIcon) themeIcon.textContent = isDark ? '☀️' : '🌙';
+        if (themeLabel) themeLabel.textContent = isDark ? 'Claro' : 'Oscuro';
+        if (metaTheme) metaTheme.setAttribute('content', isDark ? '#0f141e' : '#ffffff');
+      }
+
+      var currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+      applyThemeUI(currentTheme);
+
+      if (themeBtn) {
+        themeBtn.addEventListener('click', function () {
+          var active = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+          var next = active === 'dark' ? 'light' : 'dark';
+          try { localStorage.setItem('ghanima_theme', next); } catch (_) {}
+          applyThemeUI(next);
+        });
       }
     })();
   </script>
