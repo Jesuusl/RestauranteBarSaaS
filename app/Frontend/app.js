@@ -27,6 +27,7 @@
     activeZone: 'ALL',
     activeKdsStation: 'ALL',
     activePosStation: 'ALL',
+    activeCatalogStation: 'ALL',
     selectedTableId: null,
     selectedSessionId: null,
     currentCart: [], // { product, quantity, modifiers, notes }
@@ -127,6 +128,7 @@
     // Mesas
     tablesGrid: document.getElementById('tables-grid'),
     zoneButtons: document.querySelectorAll('.zone-btn'),
+    btnNewTable: document.getElementById('btn-new-table'),
     
     // TPV
     posTableSelect: document.getElementById('pos-table-select'),
@@ -146,6 +148,12 @@
     // KDS
     kdsFilterButtons: document.querySelectorAll('.kds-filter-btn'),
     kdsOrdersGrid: document.getElementById('kds-orders-grid'),
+
+    // Catálogo Menú
+    catalogProductsGrid: document.getElementById('catalog-products-grid'),
+    catalogSearchInput: document.getElementById('catalog-search-input'),
+    catalogFilterButtons: document.querySelectorAll('.catalog-filter-btn'),
+    btnNewProduct: document.getElementById('btn-new-product'),
 
     // Facturación
     billingTableSelect: document.getElementById('billing-table-select'),
@@ -193,6 +201,26 @@
     modalDinerCount: document.getElementById('modal-diner-count'),
     btnConfirmOpenTable: document.getElementById('btn-confirm-open-table'),
     
+    modalTableForm: document.getElementById('modal-table-form'),
+    modalTableFormTitle: document.getElementById('modal-table-form-title'),
+    formTableManage: document.getElementById('form-table-manage'),
+    tableFormId: document.getElementById('table-form-id'),
+    tableFormNumber: document.getElementById('table-form-number'),
+    tableFormZone: document.getElementById('table-form-zone'),
+    tableFormCapacity: document.getElementById('table-form-capacity'),
+    btnSaveTable: document.getElementById('btn-save-table'),
+
+    modalProductForm: document.getElementById('modal-product-form'),
+    modalProductFormTitle: document.getElementById('modal-product-form-title'),
+    formProductManage: document.getElementById('form-product-manage'),
+    productFormId: document.getElementById('product-form-id'),
+    productFormName: document.getElementById('product-form-name'),
+    productFormCategory: document.getElementById('product-form-category'),
+    productFormStation: document.getElementById('product-form-station'),
+    productFormPrice: document.getElementById('product-form-price'),
+    productFormAvailable: document.getElementById('product-form-available'),
+    btnSaveProduct: document.getElementById('btn-save-product'),
+
     modalModifiers: document.getElementById('modal-modifiers'),
     modalModProductName: document.getElementById('modal-mod-product-name'),
     modalModNotes: document.getElementById('modal-mod-notes'),
@@ -292,6 +320,7 @@
     if (viewId === 'view-tables') renderTables();
     if (viewId === 'view-pos') renderPosCatalog();
     if (viewId === 'view-kds') renderKdsOrders();
+    if (viewId === 'view-catalog') renderMenuCatalog();
     if (viewId === 'view-billing') populateBillingSelect();
   }
 
@@ -370,6 +399,7 @@
     try {
       const payload = {
         tables: STATE.tables,
+        products: STATE.products,
         kdsOrders: STATE.kdsOrders,
         shiftAudit: STATE.shiftAudit,
         invoices: STATE.invoices || []
@@ -388,6 +418,10 @@
         let restored = false;
         if (Array.isArray(data.tables) && data.tables.length > 0) {
           STATE.tables = data.tables;
+          restored = true;
+        }
+        if (Array.isArray(data.products) && data.products.length > 0) {
+          STATE.products = data.products;
           restored = true;
         }
         if (Array.isArray(data.kdsOrders)) {
@@ -434,9 +468,11 @@
       }
     } catch (_) {
       // Modo Offline: Intentar restaurar desde localStorage
-      STATE.products = JSON.parse(JSON.stringify(MOCK_PRODUCTS));
       const hasOffline = loadOfflineState();
 
+      if (!hasOffline || !STATE.products || STATE.products.length === 0) {
+        STATE.products = JSON.parse(JSON.stringify(MOCK_PRODUCTS));
+      }
       if (!hasOffline || !STATE.tables || STATE.tables.length === 0) {
         STATE.tables = JSON.parse(JSON.stringify(MOCK_TABLES));
         STATE.kdsOrders = JSON.parse(JSON.stringify(MOCK_KDS_ORDERS));
@@ -450,6 +486,7 @@
 
     renderTables();
     renderPosCatalog();
+    renderMenuCatalog();
     renderKdsOrders();
     populatePosTableSelect();
     populateBillingSelect();
@@ -504,7 +541,13 @@
             <span class="prefix">MESA</span>
             <span class="num">${table.number}</span>
           </div>
-          <span class="table-status-badge">${statusMap[table.status] || table.status}</span>
+          <div class="table-card-top-right">
+            <span class="table-status-badge">${statusMap[table.status] || table.status}</span>
+            <div class="table-card-quick-actions">
+              <button type="button" class="btn-table-icon btn-edit-table" title="Editar mesa #${table.number}" aria-label="Editar mesa #${table.number}">✏️</button>
+              <button type="button" class="btn-table-icon btn-delete-table" title="Eliminar mesa #${table.number}" aria-label="Eliminar mesa #${table.number}">🗑️</button>
+            </div>
+          </div>
         </div>
 
         <div class="table-meta-details">
@@ -539,6 +582,19 @@
 
       const btnClean = card.querySelector('.btn-act-clean');
       if (btnClean) btnClean.onclick = () => setTableStatus(table.id, 'AVAILABLE');
+
+      // Botones CRUD Editar y Eliminar
+      const btnEdit = card.querySelector('.btn-edit-table');
+      if (btnEdit) btnEdit.onclick = (e) => {
+        e.stopPropagation();
+        openModalEditTable(table);
+      };
+
+      const btnDelete = card.querySelector('.btn-delete-table');
+      if (btnDelete) btnDelete.onclick = (e) => {
+        e.stopPropagation();
+        handleDeleteTable(table);
+      };
 
       DOM.tablesGrid.appendChild(card);
     });
@@ -629,6 +685,145 @@
     populateBillingSelect();
     saveOfflineState();
   }
+
+  // --- CRUD DE MESAS (Añadir, Editar y Eliminar) ---
+  function openModalNewTable() {
+    if (!DOM.modalTableForm) return;
+    DOM.tableFormId.value = '';
+    DOM.modalTableFormTitle.textContent = '➕ Nueva Mesa';
+    
+    // Sugerir el siguiente número de mesa disponible
+    const existingNums = STATE.tables.map(t => Number(t.number) || 0);
+    const nextNum = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1;
+    DOM.tableFormNumber.value = nextNum;
+    DOM.tableFormCapacity.value = 4;
+    DOM.tableFormZone.value = (STATE.activeZone !== 'ALL') ? STATE.activeZone : 'Salón Principal';
+    
+    DOM.modalTableForm.classList.add('open');
+  }
+
+  function openModalEditTable(table) {
+    if (!DOM.modalTableForm) return;
+    DOM.tableFormId.value = table.id;
+    DOM.modalTableFormTitle.textContent = `✏️ Editar Mesa #${table.number}`;
+    DOM.tableFormNumber.value = table.number;
+    DOM.tableFormZone.value = table.zone;
+    DOM.tableFormCapacity.value = table.capacity;
+    
+    DOM.modalTableForm.classList.add('open');
+  }
+
+  async function handleSaveTable(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const id = DOM.tableFormId.value.trim();
+    const number = parseInt(DOM.tableFormNumber.value, 10);
+    const zone = DOM.tableFormZone.value.trim();
+    const capacity = parseInt(DOM.tableFormCapacity.value, 10);
+
+    if (!number || number <= 0) {
+      showToast('Por favor ingresa un número de mesa válido mayor a 0', 'alert');
+      return;
+    }
+    if (!zone) {
+      showToast('Por favor selecciona una zona para la mesa', 'alert');
+      return;
+    }
+    if (!capacity || capacity <= 0) {
+      showToast('La capacidad de comensales debe ser mayor a 0', 'alert');
+      return;
+    }
+
+    // Verificar si el número de mesa ya está en uso por otra mesa
+    const duplicate = STATE.tables.find(t => Number(t.number) === number && t.id !== id);
+    if (duplicate) {
+      showToast(`El número de mesa ${number} ya existe en el establecimiento`, 'alert');
+      return;
+    }
+
+    if (!id) {
+      // POST /api/tables (Crear mesa)
+      const newTable = {
+        id: `tab-${Date.now()}`,
+        number,
+        zone,
+        capacity,
+        status: 'AVAILABLE',
+        currentSessionId: null,
+        openedAt: null
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/api/tables`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ number, zone, capacity })
+        });
+        if (res.ok) {
+          const created = await res.json();
+          if (created && created.id) newTable.id = created.id;
+        }
+      } catch (_) {}
+
+      STATE.tables.push(newTable);
+      showToast(`Mesa #${number} creada exitosamente en ${zone}`, 'success');
+    } else {
+      // PUT /api/tables/:id (Editar mesa)
+      const table = STATE.tables.find(t => t.id === id);
+      if (table) {
+        table.number = number;
+        table.zone = zone;
+        table.capacity = capacity;
+      }
+
+      try {
+        await fetch(`${API_BASE}/api/tables/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ number, zone, capacity })
+        });
+      } catch (_) {}
+
+      showToast(`Mesa #${number} actualizada exitosamente`, 'success');
+    }
+
+    if (DOM.modalTableForm) DOM.modalTableForm.classList.remove('open');
+    renderTables();
+    populatePosTableSelect();
+    populateBillingSelect();
+    saveOfflineState();
+  }
+
+  async function handleDeleteTable(table) {
+    if (table.status === 'OCCUPIED' || table.status === 'PAYING') {
+      showToast(`No se puede eliminar la Mesa #${table.number} porque se encuentra ${table.status === 'OCCUPIED' ? 'ocupada' : 'en proceso de cobro'}.`, 'alert');
+      return;
+    }
+
+    if (!confirm(`¿Estás seguro de que deseas eliminar la Mesa #${table.number} (${table.zone})?`)) {
+      return;
+    }
+
+    try {
+      await fetch(`${API_BASE}/api/tables/${table.id}`, {
+        method: 'DELETE'
+      });
+    } catch (_) {}
+
+    STATE.tables = STATE.tables.filter(t => t.id !== table.id);
+    if (STATE.selectedTableId === table.id) {
+      STATE.selectedTableId = null;
+    }
+
+    showToast(`Mesa #${table.number} eliminada del plano`, 'info');
+    renderTables();
+    populatePosTableSelect();
+    populateBillingSelect();
+    saveOfflineState();
+  }
+
+  if (DOM.btnNewTable) DOM.btnNewTable.onclick = openModalNewTable;
+  if (DOM.btnSaveTable) DOM.btnSaveTable.onclick = handleSaveTable;
+  if (DOM.formTableManage) DOM.formTableManage.onsubmit = handleSaveTable;
 
   // =========================================================================
   // MÓDULO 2: TPV COMANDAS & CATÁLOGO
@@ -855,20 +1050,70 @@
       unitPriceCOP: item.product.salePriceCOP
     }));
 
-    // Simular o enviar al backend
-    const newKdsTicket = {
-      id: `ord-${Date.now()}`,
-      orderNumber: Math.floor(100 + Math.random() * 900),
-      tableNumber: table ? table.number : 1,
-      tableName: `Mesa ${table ? table.number : 1}`,
-      station: orderItems.some(i => i.station === 'KITCHEN') ? 'KITCHEN' : 'BAR',
-      status: 'PENDING',
-      createdAt: new Date().toISOString(),
-      items: orderItems
-    };
+    // CORRECCIÓN KDS (Cocina vs. Barra):
+    // Divide orderItems en kitchenItems (station === 'KITCHEN') y barItems (station === 'BAR')
+    const kitchenItems = orderItems.filter(item => item.station === 'KITCHEN');
+    const barItems = orderItems.filter(item => item.station === 'BAR');
 
-    STATE.kdsOrders.unshift(newKdsTicket);
-    showToast(`Comanda #${newKdsTicket.orderNumber} enviada a producción`, 'success');
+    const generatedTickets = [];
+    const baseOrderNum = Math.floor(100 + Math.random() * 800);
+
+    // Si hay kitchenItems, genera un ticket KDS con station: 'KITCHEN' conteniendo ÚNICAMENTE los platos de cocina
+    if (kitchenItems.length > 0) {
+      const kitchenTicket = {
+        id: `ord-${Date.now()}-kit`,
+        orderNumber: baseOrderNum,
+        tableNumber: table ? table.number : 1,
+        tableName: `Mesa ${table ? table.number : 1}`,
+        station: 'KITCHEN',
+        status: 'PENDING',
+        createdAt: new Date().toISOString(),
+        items: kitchenItems
+      };
+      generatedTickets.push(kitchenTicket);
+    }
+
+    // Si hay barItems, genera un ticket KDS con station: 'BAR' conteniendo ÚNICAMENTE las bebidas de barra
+    if (barItems.length > 0) {
+      const barTicket = {
+        id: `ord-${Date.now()}-bar`,
+        orderNumber: kitchenItems.length > 0 ? baseOrderNum + 1 : baseOrderNum,
+        tableNumber: table ? table.number : 1,
+        tableName: `Mesa ${table ? table.number : 1}`,
+        station: 'BAR',
+        status: 'PENDING',
+        createdAt: new Date().toISOString(),
+        items: barItems
+      };
+      generatedTickets.push(barTicket);
+    }
+
+    // En caso de que no haya estación definida, fallback
+    if (generatedTickets.length === 0 && orderItems.length > 0) {
+      generatedTickets.push({
+        id: `ord-${Date.now()}`,
+        orderNumber: baseOrderNum,
+        tableNumber: table ? table.number : 1,
+        tableName: `Mesa ${table ? table.number : 1}`,
+        station: 'KITCHEN',
+        status: 'PENDING',
+        createdAt: new Date().toISOString(),
+        items: orderItems
+      });
+    }
+
+    // Agregar tickets a la cola de KDS
+    generatedTickets.forEach(ticket => {
+      STATE.kdsOrders.unshift(ticket);
+    });
+
+    if (kitchenItems.length > 0 && barItems.length > 0) {
+      showToast(`Comandas #${generatedTickets.map(t => t.orderNumber).join(' y #')} enviadas a Cocina y Barra`, 'success');
+    } else if (kitchenItems.length > 0) {
+      showToast(`Comanda #${generatedTickets[0].orderNumber} enviada a Cocina`, 'success');
+    } else if (barItems.length > 0) {
+      showToast(`Comanda #${generatedTickets[0].orderNumber} enviada a Barra`, 'success');
+    }
 
     try {
       await fetch(`${API_BASE}/api/orders`, {
@@ -893,11 +1138,24 @@
   // =========================================================================
   function renderKdsOrders() {
     DOM.kdsOrdersGrid.innerHTML = '';
+
+    // Filtrado estricto por estación
     const filtered = STATE.activeKdsStation === 'ALL'
       ? STATE.kdsOrders
       : STATE.kdsOrders.filter(o => o.station === STATE.activeKdsStation);
 
-    DOM.kdsPendingBadge.textContent = filtered.filter(o => o.status !== 'SERVED').length;
+    DOM.kdsPendingBadge.textContent = STATE.kdsOrders.filter(o => o.status !== 'SERVED').length;
+
+    if (filtered.length === 0) {
+      DOM.kdsOrdersGrid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+          <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">🎉</div>
+          <p style="font-size: 1.1rem; font-weight: 600;">No hay comandas pendientes en esta estación</p>
+          <span style="font-size: 0.85rem; color: var(--text-dim);">Filtro activo: ${STATE.activeKdsStation === 'ALL' ? 'Todas las estaciones' : STATE.activeKdsStation === 'KITCHEN' ? '🍳 Cocina' : '🍸 Barra'}</span>
+        </div>
+      `;
+      return;
+    }
 
     filtered.forEach(order => {
       const minutes = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000);
@@ -905,13 +1163,21 @@
       if (minutes >= 20) timerClass = 'kds-delayed';
       else if (minutes >= 10) timerClass = 'kds-warning';
 
+      const isKitchen = order.station === 'KITCHEN';
+      const stationBadgeClass = isKitchen ? 'badge-kitchen' : 'badge-bar';
+      const stationIcon = isKitchen ? '🍳' : '🍸';
+      const stationLabel = isKitchen ? 'Cocina' : 'Barra';
+
       const ticket = document.createElement('div');
-      ticket.className = 'kds-order-ticket';
+      ticket.className = `kds-order-ticket station-${order.station ? order.station.toLowerCase() : 'kitchen'}`;
       ticket.innerHTML = `
         <div class="kds-ticket-header">
           <div>
             <div class="kds-ticket-table-name">${order.tableName}</div>
-            <span style="font-size: 0.75rem; color: var(--text-dim);">Ticket #${order.orderNumber} - ${order.station}</span>
+            <div style="display: flex; gap: 0.4rem; align-items: center; margin-top: 0.2rem;">
+              <span style="font-size: 0.75rem; color: var(--text-dim);">Ticket #${order.orderNumber}</span>
+              <span class="kds-station-badge ${stationBadgeClass}">${stationIcon} ${stationLabel}</span>
+            </div>
           </div>
           <div class="kds-timer-badge ${timerClass}">
             ⏱️ ${minutes} min
@@ -922,7 +1188,7 @@
           ${order.items.map(it => `
             <div class="kds-ticket-item-row">
               <div class="kds-item-main">
-                <span>${it.quantity}x ${it.productName}</span>
+                <span><strong>${it.quantity}x</strong> ${it.productName}</span>
               </div>
               ${it.modifiers ? `<div class="kds-item-mod">⚡ ${it.modifiers}</div>` : ''}
               ${it.notes ? `<div style="font-size: 0.75rem; color: var(--text-muted); font-style: italic;">📝 ${it.notes}</div>` : ''}
@@ -975,6 +1241,219 @@
       renderKdsOrders();
     };
   });
+
+  // =========================================================================
+  // MÓDULO: CRUD DEL MENÚ / CATÁLOGO DE PRODUCTOS (Lo que se va a vender)
+  // =========================================================================
+  function renderMenuCatalog() {
+    if (!DOM.catalogProductsGrid) return;
+    DOM.catalogProductsGrid.innerHTML = '';
+    const query = DOM.catalogSearchInput ? DOM.catalogSearchInput.value.toLowerCase().trim() : '';
+
+    let filtered = STATE.products || [];
+    if (STATE.activeCatalogStation !== 'ALL') {
+      filtered = filtered.filter(p => p.station === STATE.activeCatalogStation);
+    }
+    if (query) {
+      filtered = filtered.filter(p =>
+        (p.name && p.name.toLowerCase().includes(query)) ||
+        (p.category && p.category.toLowerCase().includes(query))
+      );
+    }
+
+    if (filtered.length === 0) {
+      DOM.catalogProductsGrid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+          <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">🔍</div>
+          <p style="font-size: 1.1rem; font-weight: 600;">No se encontraron productos en el catálogo</p>
+          <span style="font-size: 0.85rem; color: var(--text-dim);">Prueba con otros términos de búsqueda o registra un nuevo producto en el menú.</span>
+        </div>
+      `;
+      return;
+    }
+
+    filtered.forEach(product => {
+      const isKitchen = product.station === 'KITCHEN';
+      const stationBadgeClass = isKitchen ? 'badge-kitchen' : 'badge-bar';
+      const stationIcon = isKitchen ? '🍳' : '🍸';
+      const stationLabel = isKitchen ? 'Cocina' : 'Barra';
+      const isAvailable = product.isAvailable !== false;
+
+      const card = document.createElement('div');
+      card.className = `catalog-card ${isKitchen ? 'station-kitchen' : 'station-bar'}`;
+      card.innerHTML = `
+        <div>
+          <div class="catalog-card-header">
+            <div class="catalog-badges-wrap">
+              <span class="catalog-category-badge">${product.category || 'General'}</span>
+              <span class="kds-station-badge ${stationBadgeClass}">${stationIcon} ${stationLabel}</span>
+            </div>
+            <span class="catalog-avail-badge ${isAvailable ? 'available' : 'unavailable'}">
+              ${isAvailable ? '✅ Disponible' : '❌ Agotado'}
+            </span>
+          </div>
+
+          <h3 class="catalog-card-name">${product.name}</h3>
+        </div>
+
+        <div>
+          <div class="catalog-card-price-row">
+            <span style="font-size: 0.85rem; color: var(--text-muted);">Precio de Venta:</span>
+            <span class="catalog-price-val">${formatCOP(product.salePriceCOP)}</span>
+          </div>
+
+          <div class="catalog-card-actions">
+            <button type="button" class="btn-catalog-action edit btn-edit-product" data-id="${product.id}">
+              ✏️ Editar
+            </button>
+            <button type="button" class="btn-catalog-action delete btn-delete-product" data-id="${product.id}">
+              🗑️ Eliminar
+            </button>
+          </div>
+        </div>
+      `;
+
+      card.querySelector('.btn-edit-product').onclick = () => openModalEditProduct(product);
+      card.querySelector('.btn-delete-product').onclick = () => handleDeleteProduct(product);
+
+      DOM.catalogProductsGrid.appendChild(card);
+    });
+  }
+
+  function openModalNewProduct() {
+    if (!DOM.modalProductForm) return;
+    DOM.productFormId.value = '';
+    DOM.modalProductFormTitle.textContent = '➕ Nuevo Producto';
+    DOM.productFormName.value = '';
+    DOM.productFormCategory.value = '';
+    DOM.productFormStation.value = STATE.activeCatalogStation !== 'ALL' ? STATE.activeCatalogStation : 'KITCHEN';
+    DOM.productFormPrice.value = '';
+    DOM.productFormAvailable.value = 'true';
+    DOM.modalProductForm.classList.add('open');
+  }
+
+  function openModalEditProduct(product) {
+    if (!DOM.modalProductForm) return;
+    DOM.productFormId.value = product.id;
+    DOM.modalProductFormTitle.textContent = `✏️ Editar: ${product.name}`;
+    DOM.productFormName.value = product.name;
+    DOM.productFormCategory.value = product.category;
+    DOM.productFormStation.value = product.station || 'KITCHEN';
+    DOM.productFormPrice.value = product.salePriceCOP;
+    DOM.productFormAvailable.value = product.isAvailable !== false ? 'true' : 'false';
+    DOM.modalProductForm.classList.add('open');
+  }
+
+  async function handleSaveProduct(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const id = DOM.productFormId.value.trim();
+    const name = DOM.productFormName.value.trim();
+    const category = DOM.productFormCategory.value.trim();
+    const station = DOM.productFormStation.value;
+    const salePriceCOP = Math.round(Number(DOM.productFormPrice.value) || 0);
+    const isAvailable = DOM.productFormAvailable.value === 'true';
+
+    if (!name) {
+      showToast('Por favor ingresa el nombre del producto', 'alert');
+      return;
+    }
+    if (!category) {
+      showToast('Por favor ingresa la categoría del producto', 'alert');
+      return;
+    }
+    if (salePriceCOP < 0 || isNaN(salePriceCOP)) {
+      showToast('El precio en COP debe ser mayor o igual a 0', 'alert');
+      return;
+    }
+
+    if (!id) {
+      // POST /api/products (Crear nuevo producto)
+      const newProduct = {
+        id: `prod-${Date.now()}`,
+        name,
+        category,
+        station,
+        salePriceCOP,
+        isAvailable
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/api/products`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, category, station, salePriceCOP, isAvailable })
+        });
+        if (res.ok) {
+          const created = await res.json();
+          if (created && created.id) newProduct.id = created.id;
+        }
+      } catch (_) {}
+
+      STATE.products.push(newProduct);
+      showToast(`Producto "${name}" agregado al menú`, 'success');
+    } else {
+      // PUT /api/products/:id (Editar producto existente)
+      const product = STATE.products.find(p => p.id === id);
+      if (product) {
+        product.name = name;
+        product.category = category;
+        product.station = station;
+        product.salePriceCOP = salePriceCOP;
+        product.isAvailable = isAvailable;
+      }
+
+      try {
+        await fetch(`${API_BASE}/api/products/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, category, station, salePriceCOP, isAvailable })
+        });
+      } catch (_) {}
+
+      showToast(`Producto "${name}" actualizado`, 'success');
+    }
+
+    if (DOM.modalProductForm) DOM.modalProductForm.classList.remove('open');
+    renderMenuCatalog();
+    renderPosCatalog();
+    saveOfflineState();
+  }
+
+  async function handleDeleteProduct(product) {
+    if (!confirm(`¿Estás seguro de eliminar "${product.name}" del menú?`)) {
+      return;
+    }
+
+    try {
+      await fetch(`${API_BASE}/api/products/${product.id}`, {
+        method: 'DELETE'
+      });
+    } catch (_) {}
+
+    STATE.products = STATE.products.filter(p => p.id !== product.id);
+    showToast(`Producto "${product.name}" eliminado del catálogo`, 'info');
+    renderMenuCatalog();
+    renderPosCatalog();
+    saveOfflineState();
+  }
+
+  // Eventos de Catálogo
+  if (DOM.btnNewProduct) DOM.btnNewProduct.onclick = openModalNewProduct;
+  if (DOM.btnSaveProduct) DOM.btnSaveProduct.onclick = handleSaveProduct;
+  if (DOM.formProductManage) DOM.formProductManage.onsubmit = handleSaveProduct;
+  if (DOM.catalogSearchInput) {
+    DOM.catalogSearchInput.oninput = () => renderMenuCatalog();
+  }
+  if (DOM.catalogFilterButtons) {
+    DOM.catalogFilterButtons.forEach(btn => {
+      btn.onclick = () => {
+        DOM.catalogFilterButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        STATE.activeCatalogStation = btn.dataset.station;
+        renderMenuCatalog();
+      };
+    });
+  }
 
   // Temporizador de refresco KDS continuo
   setInterval(() => {

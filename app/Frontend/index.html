@@ -42,6 +42,9 @@
           <span>👨‍🍳</span> KDS Cocina/Barra
           <span id="kds-pending-badge" class="badge-pill">0</span>
         </button>
+        <button id="nav-btn-catalog" class="nav-tab-btn" data-view="view-catalog">
+          <span>📦</span> Catálogo Menú
+        </button>
         <button id="nav-btn-billing" class="nav-tab-btn" data-view="view-billing">
           <span>🧾</span> Facturación COP
         </button>
@@ -83,12 +86,17 @@
             <p style="color: var(--text-muted); font-size: 0.85rem;">Gestión de turnos, comensales y estados en tiempo real</p>
           </div>
 
-          <!-- Selector de Zonas -->
-          <div class="zone-filter-bar" role="group" aria-label="Filtro por zona">
-            <button class="zone-btn active" data-zone="ALL">Todas</button>
-            <button class="zone-btn" data-zone="Salón Principal">Salón Principal</button>
-            <button class="zone-btn" data-zone="Terraza">Terraza</button>
-            <button class="zone-btn" data-zone="Barra VIP">Barra VIP</button>
+          <!-- Selector de Zonas y Botón Nueva Mesa -->
+          <div class="tables-zone-toolbar">
+            <div class="zone-filter-bar" role="group" aria-label="Filtro por zona">
+              <button class="zone-btn active" data-zone="ALL">Todas</button>
+              <button class="zone-btn" data-zone="Salón Principal">Salón Principal</button>
+              <button class="zone-btn" data-zone="Terraza">Terraza</button>
+              <button class="zone-btn" data-zone="Barra VIP">Barra VIP</button>
+            </div>
+            <button type="button" id="btn-new-table" class="btn-action-primary" title="Registrar una nueva mesa en el plano">
+              <span>➕</span> Nueva Mesa
+            </button>
           </div>
 
           <!-- Leyenda de Estados Cromáticos -->
@@ -216,6 +224,43 @@
 
         <!-- Cuadrícula de Tickets KDS -->
         <div id="kds-orders-grid" class="kds-orders-grid">
+          <!-- Renderizado dinámico desde app.js -->
+        </div>
+      </section>
+
+      <!-- ==========================================
+           VISTA: CATÁLOGO DE PRODUCTOS / MENÚ
+           ========================================== -->
+      <section id="view-catalog" class="view-section" aria-labelledby="catalog-title">
+        <div class="module-header-row">
+          <div>
+            <h2 id="catalog-title">Catálogo y Menú de Productos</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">Gestión integral de platos de cocina, bebidas de barra, precios en COP y disponibilidad</p>
+          </div>
+
+          <!-- Barra de Acciones del Catálogo -->
+          <div class="catalog-toolbar">
+            <button type="button" id="btn-new-product" class="btn-action-primary" title="Registrar un nuevo producto en el menú">
+              <span>➕</span> Nuevo Producto
+            </button>
+          </div>
+        </div>
+
+        <!-- Filtros y Buscador del Catálogo -->
+        <div class="catalog-filter-bar">
+          <div class="catalog-station-filter" role="group" aria-label="Filtro por estación">
+            <button class="catalog-filter-btn active" data-station="ALL">🍽️🍸 Todas</button>
+            <button class="catalog-filter-btn" data-station="KITCHEN">🍳 Cocina</button>
+            <button class="catalog-filter-btn" data-station="BAR">🍸 Barra</button>
+          </div>
+
+          <div class="catalog-search-wrapper">
+            <input type="text" id="catalog-search-input" placeholder="🔍 Buscar producto por nombre o categoría..." aria-label="Buscar producto">
+          </div>
+        </div>
+
+        <!-- Cuadrícula de Productos del Catálogo -->
+        <div id="catalog-products-grid" class="catalog-products-grid">
           <!-- Renderizado dinámico desde app.js -->
         </div>
       </section>
@@ -516,6 +561,104 @@
               </button>
               <button type="submit" id="btn-save-backend-url" class="btn-submit-order" style="margin-top: 0; padding: 0.65rem 1.25rem; font-size: 0.88rem;">
                 💾 Guardar y Conectar
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal 4: Crear / Editar Mesa (CRUD Mesas) -->
+    <div id="modal-table-form" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-table-form-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <h3 id="modal-table-form-title">➕ Nueva Mesa</h3>
+            <p id="modal-table-form-subtitle" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem;">Configura los datos del plano y capacidad de comensales</p>
+          </div>
+          <button type="button" class="modal-close-btn" data-close-modal="modal-table-form" aria-label="Cerrar modal">&times;</button>
+        </div>
+        <form id="form-table-manage" onsubmit="return false;">
+          <input type="hidden" id="table-form-id">
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div>
+              <label for="table-form-number" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Número de Mesa:</label>
+              <input type="number" id="table-form-number" min="1" max="999" placeholder="Ej: 9" required style="width: 100%;">
+            </div>
+            <div>
+              <label for="table-form-zone" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Zona del Establecimiento:</label>
+              <select id="table-form-zone" required style="width: 100%;">
+                <option value="Salón Principal">Salón Principal</option>
+                <option value="Terraza">Terraza</option>
+                <option value="Barra VIP">Barra VIP</option>
+              </select>
+            </div>
+            <div>
+              <label for="table-form-capacity" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Capacidad Máxima (personas):</label>
+              <input type="number" id="table-form-capacity" min="1" max="50" placeholder="Ej: 4" required style="width: 100%;">
+            </div>
+            <div style="display: flex; gap: 0.75rem; justify-content: flex-end; align-items: center; margin-top: 0.5rem; flex-wrap: wrap;">
+              <button type="button" class="btn-clear-cart" data-close-modal="modal-table-form" style="padding: 0.65rem 1.25rem; font-size: 0.85rem;">
+                Cancelar
+              </button>
+              <button type="submit" id="btn-save-table" class="btn-submit-order" style="margin-top: 0; padding: 0.65rem 1.5rem; font-size: 0.88rem;">
+                💾 Guardar Mesa
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal 5: Crear / Editar Producto del Menú (CRUD Catálogo) -->
+    <div id="modal-product-form" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-product-form-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <h3 id="modal-product-form-title">➕ Nuevo Producto</h3>
+            <p id="modal-product-form-subtitle" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem;">Define los detalles, precio COP y estación de preparación</p>
+          </div>
+          <button type="button" class="modal-close-btn" data-close-modal="modal-product-form" aria-label="Cerrar modal">&times;</button>
+        </div>
+        <form id="form-product-manage" onsubmit="return false;">
+          <input type="hidden" id="product-form-id">
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div>
+              <label for="product-form-name" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Nombre del Producto / Plato / Bebida:</label>
+              <input type="text" id="product-form-name" placeholder="Ej: Hamburguesa Artesanal Angus" required style="width: 100%;">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+              <div>
+                <label for="product-form-category" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Categoría:</label>
+                <input type="text" id="product-form-category" placeholder="Ej: Carnes, Cócteles..." required style="width: 100%;">
+              </div>
+              <div>
+                <label for="product-form-station" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Estación de Despacho:</label>
+                <select id="product-form-station" required style="width: 100%;">
+                  <option value="KITCHEN">🍳 Cocina (Platos)</option>
+                  <option value="BAR">🍸 Barra (Bebidas)</option>
+                </select>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 0.75rem; align-items: flex-end;">
+              <div>
+                <label for="product-form-price" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Precio de Venta COP ($):</label>
+                <input type="number" id="product-form-price" min="0" step="500" placeholder="Ej: 35000" required style="width: 100%;">
+              </div>
+              <div>
+                <label for="product-form-available" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Disponibilidad:</label>
+                <select id="product-form-available" style="width: 100%;">
+                  <option value="true">✅ Disponible</option>
+                  <option value="false">❌ No Disponible (Agotado)</option>
+                </select>
+              </div>
+            </div>
+            <div style="display: flex; gap: 0.75rem; justify-content: flex-end; align-items: center; margin-top: 0.5rem; flex-wrap: wrap;">
+              <button type="button" class="btn-clear-cart" data-close-modal="modal-product-form" style="padding: 0.65rem 1.25rem; font-size: 0.85rem;">
+                Cancelar
+              </button>
+              <button type="submit" id="btn-save-product" class="btn-submit-order" style="margin-top: 0; padding: 0.65rem 1.5rem; font-size: 0.88rem;">
+                💾 Guardar Producto
               </button>
             </div>
           </div>

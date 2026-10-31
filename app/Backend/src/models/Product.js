@@ -21,6 +21,7 @@ class Product {
   static async create(productData, customDb) {
     const db = customDb || getDatabase();
     const isAvail = productData.isAvailable !== false;
+    const id = productData.id || `prod-${Date.now()}`;
     await db.query(`
       INSERT INTO products (id, name, category, station, salePriceCOP, isAvailable)
       VALUES ($1, $2, $3, $4, $5, $6)
@@ -31,17 +32,17 @@ class Product {
         salePriceCOP = EXCLUDED.salePriceCOP,
         isAvailable = EXCLUDED.isAvailable
     `, [
-      productData.id,
+      id,
       productData.name,
       productData.category,
       productData.station,
-      Number(productData.salePriceCOP),
+      Number(productData.salePriceCOP || 0),
       isAvail
     ]);
 
     if (Array.isArray(productData.recipe) && productData.recipe.length > 0) {
       for (const item of productData.recipe) {
-        const recipeId = item.id || `${productData.id}-rec-${item.ingredientId}`;
+        const recipeId = item.id || `${id}-rec-${item.ingredientId}`;
         await db.query(`
           INSERT INTO product_recipes (id, productId, ingredientId, quantity)
           VALUES ($1, $2, $3, $4)
@@ -49,11 +50,11 @@ class Product {
             productId = EXCLUDED.productId,
             ingredientId = EXCLUDED.ingredientId,
             quantity = EXCLUDED.quantity
-        `, [recipeId, productData.id, item.ingredientId, Number(item.quantity)]);
+        `, [recipeId, id, item.ingredientId, Number(item.quantity)]);
       }
     }
 
-    return await Product.findById(productData.id, db);
+    return await Product.findById(id, db);
   }
 
   static async findById(id, customDb) {
@@ -113,6 +114,59 @@ class Product {
         quantity = EXCLUDED.quantity
     `, [id, productId, ingredientId, Number(quantity)]);
     return await Product.findById(productId, db);
+  }
+
+  static async update(id, data, customDb) {
+    const db = customDb || getDatabase();
+    const existing = await Product.findById(id, db);
+    if (!existing) {
+      return null;
+    }
+
+    const name = data.name !== undefined ? data.name : existing.name;
+    const category = data.category !== undefined ? data.category : existing.category;
+    const station = data.station !== undefined ? data.station : existing.station;
+    const salePriceCOP = data.salePriceCOP !== undefined ? Number(data.salePriceCOP) : existing.salePriceCOP;
+    const isAvailable = data.isAvailable !== undefined
+      ? (data.isAvailable === true || data.isAvailable === 1 || data.isAvailable === 'true')
+      : existing.isAvailable;
+
+    await db.query(`
+      UPDATE products
+      SET name = $1, category = $2, station = $3, salePriceCOP = $4, isAvailable = $5
+      WHERE id = $6
+    `, [name, category, station, salePriceCOP, isAvailable, id]);
+
+    if (Array.isArray(data.recipe)) {
+      await db.query('DELETE FROM product_recipes WHERE productId = $1', [id]);
+      for (const item of data.recipe) {
+        const recipeId = item.id || `${id}-rec-${item.ingredientId}`;
+        await db.query(`
+          INSERT INTO product_recipes (id, productId, ingredientId, quantity)
+          VALUES ($1, $2, $3, $4)
+          ON CONFLICT (id) DO UPDATE SET
+            productId = EXCLUDED.productId,
+            ingredientId = EXCLUDED.ingredientId,
+            quantity = EXCLUDED.quantity
+        `, [recipeId, id, item.ingredientId, Number(item.quantity)]);
+      }
+    }
+
+    return await Product.findById(id, db);
+  }
+
+  static async delete(id, customDb) {
+    const db = customDb || getDatabase();
+    const existing = await Product.findById(id, db);
+    if (!existing) {
+      return false;
+    }
+
+    // Eliminando recetas asociadas
+    await db.query('DELETE FROM product_recipes WHERE productId = $1', [id]);
+    // Eliminando producto
+    await db.query('DELETE FROM products WHERE id = $1', [id]);
+    return true;
   }
 }
 

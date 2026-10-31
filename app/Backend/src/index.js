@@ -40,27 +40,12 @@ app.get('/api/events', (req, res) => {
   eventService.addClient(res, req);
 });
 
-// --- RUTAS DE MESAS & ZONAS ---
-app.get('/api/tables', async (req, res) => {
-  try {
-    const { zone } = req.query;
-    const tables = zone ? await Table.findByZone(zone) : await Table.findAll();
-    res.json(tables);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get('/api/tables/:id', async (req, res) => {
-  try {
-    const table = await Table.findById(req.params.id);
-    if (!table) return res.status(404).json({ error: 'Mesa no encontrada' });
-    res.json(table);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
+// --- RUTAS DE MESAS & ZONAS (CRUD) ---
+app.get('/api/tables', InventoryController.getTables);
+app.get('/api/tables/:id', InventoryController.getTableById);
+app.post('/api/tables', InventoryController.createTable);
+app.put('/api/tables/:id', InventoryController.updateTable);
+app.delete('/api/tables/:id', InventoryController.deleteTable);
 app.patch('/api/tables/:id/status', async (req, res) => {
   try {
     const { status, currentSessionId } = req.body;
@@ -116,6 +101,13 @@ app.post('/api/sessions/:id/close', async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 });
+
+// --- RUTAS DE PRODUCTOS (CRUD) ---
+app.get('/api/products', InventoryController.getProducts);
+app.get('/api/products/:id', InventoryController.getProductById);
+app.post('/api/products', InventoryController.createProduct);
+app.put('/api/products/:id', InventoryController.updateProduct);
+app.delete('/api/products/:id', InventoryController.deleteProduct);
 
 // --- RUTAS DE INVENTARIO Y MENÚ ---
 app.get('/api/inventory/ingredients', InventoryController.getIngredients);

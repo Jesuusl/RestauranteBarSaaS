@@ -1,3 +1,4 @@
+process.env.NODE_ENV = 'test';
 const { test, describe, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 

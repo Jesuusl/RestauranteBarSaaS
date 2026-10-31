@@ -432,6 +432,38 @@ input:focus, select:focus, textarea:focus {
   border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
+.tables-zone-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.btn-action-primary {
+  min-height: 42px;
+  padding: 0.5rem 1.15rem;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(217, 119, 6, 0.25));
+  border: 1px solid var(--accent-gold);
+  color: var(--accent-gold);
+  font-weight: 700;
+  font-size: 0.88rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.15);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.btn-action-primary:hover {
+  background: var(--accent-gold);
+  color: var(--text-inverse);
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.35);
+  transform: translateY(-1px);
+}
+
 /* Barra de Leyenda de Estados */
 .status-legend-bar {
   display: flex;
@@ -555,6 +587,50 @@ input:focus, select:focus, textarea:focus {
 .status-PAYING .table-status-badge { background: rgba(245, 158, 11, 0.15); color: var(--color-paying); }
 .status-RESERVED .table-status-badge { background: rgba(59, 130, 246, 0.15); color: var(--color-reserved); }
 .status-CLEANING .table-status-badge { background: rgba(139, 92, 246, 0.15); color: var(--color-cleaning); }
+
+.table-card-top-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.45rem;
+}
+
+.table-card-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btn-table-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-table-icon:hover {
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.btn-table-icon.btn-edit-table:hover {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.btn-table-icon.btn-delete-table:hover {
+  border-color: var(--color-occupied);
+  background: rgba(239, 68, 68, 0.18);
+  color: var(--color-occupied);
+}
 
 .table-meta-details {
   display: flex;
@@ -1128,6 +1204,256 @@ input:focus, select:focus, textarea:focus {
   color: #fff;
 }
 
+/* Badges de Estación KDS (Cocina vs Barra) */
+.kds-station-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.kds-station-badge.badge-kitchen {
+  background: rgba(249, 115, 22, 0.16);
+  color: var(--station-kitchen);
+  border: 1px solid rgba(249, 115, 22, 0.35);
+}
+
+.kds-station-badge.badge-bar {
+  background: rgba(6, 182, 212, 0.16);
+  color: var(--station-bar);
+  border: 1px solid rgba(6, 182, 212, 0.35);
+}
+
+.kds-order-ticket.station-kitchen {
+  border-top: 3px solid var(--station-kitchen);
+}
+
+.kds-order-ticket.station-bar {
+  border-top: 3px solid var(--station-bar);
+}
+
+/* ==========================================================================
+   MÓDULO: CATÁLOGO Y MENÚ DE PRODUCTOS (CRUD)
+   ========================================================================== */
+.catalog-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.catalog-filter-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  background: var(--bg-surface);
+  padding: 0.85rem 1.25rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+}
+
+.catalog-station-filter {
+  display: flex;
+  gap: 0.4rem;
+  background: var(--bg-primary);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.catalog-filter-btn {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  min-height: 38px;
+  transition: all 0.2s ease;
+}
+
+.catalog-filter-btn:hover {
+  color: var(--text-main);
+}
+
+.catalog-filter-btn.active {
+  background: var(--accent-gold);
+  color: var(--text-inverse);
+  font-weight: 700;
+}
+
+.catalog-search-wrapper {
+  position: relative;
+  min-width: 260px;
+  flex: 1;
+  max-width: 440px;
+}
+
+.catalog-search-wrapper input {
+  width: 100%;
+  padding-left: 14px;
+}
+
+.catalog-products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.25rem;
+}
+
+.catalog-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  min-height: 200px;
+}
+
+.catalog-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(245, 158, 11, 0.35);
+  box-shadow: var(--shadow-md);
+}
+
+.catalog-card.station-kitchen::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--station-kitchen);
+}
+
+.catalog-card.station-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--station-bar);
+}
+
+.catalog-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+  gap: 0.5rem;
+}
+
+.catalog-badges-wrap {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.catalog-category-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+}
+
+.catalog-avail-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+}
+
+.catalog-avail-badge.available {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--color-available);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.catalog-avail-badge.unavailable {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--color-occupied);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.catalog-card-name {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.3;
+  margin-bottom: 0.75rem;
+}
+
+.catalog-card-price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px dashed var(--border-subtle);
+}
+
+.catalog-price-val {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--accent-gold);
+}
+
+.catalog-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
+.btn-catalog-action {
+  flex: 1;
+  min-height: 42px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.85rem;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-catalog-action:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.btn-catalog-action.edit:hover {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.btn-catalog-action.delete:hover {
+  border-color: var(--color-occupied);
+  color: var(--color-occupied);
+  background: rgba(239, 68, 68, 0.15);
+}
+
 /* ==========================================================================
    MÓDULO 4: FACTURACIÓN & COBRO COP
    ========================================================================== */
@@ -1622,6 +1948,21 @@ input:checked + .slider:before {
     grid-template-columns: 1fr;
   }
   .tables-grid {
+    grid-template-columns: 1fr;
+  }
+  .tables-zone-toolbar {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .catalog-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .catalog-search-wrapper {
+    max-width: 100%;
+    min-width: unset;
+  }
+  .catalog-products-grid {
     grid-template-columns: 1fr;
   }
 }
