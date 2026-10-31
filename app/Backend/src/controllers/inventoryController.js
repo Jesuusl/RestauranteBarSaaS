@@ -193,6 +193,18 @@ class InventoryController {
   static async deleteTable(req, res) {
     try {
       const db = req.db;
+      const table = await Table.findById(req.params.id, db);
+      if (!table) {
+        return res.status(404).json({ error: 'Mesa no encontrada' });
+      }
+
+      if (table.status === 'OCCUPIED' || table.status === 'PAYING') {
+        return res.status(409).json({
+          error: 'No se puede eliminar una mesa ocupada o en proceso de pago',
+          message: 'No se puede eliminar una mesa ocupada o en proceso de pago'
+        });
+      }
+
       const deleted = await Table.delete(req.params.id, db);
       if (!deleted) {
         return res.status(404).json({ error: 'Mesa no encontrada' });

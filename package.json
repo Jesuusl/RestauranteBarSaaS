@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "test": "npm --prefix app/Backend test"
+  },
   "dependencies": {
     "@supabase/server": "^1.9.2"
   }

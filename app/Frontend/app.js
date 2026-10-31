@@ -841,18 +841,28 @@
     }
 
     filtered.forEach(product => {
+      const isUnavailable = product.isAvailable === false;
       const card = document.createElement('div');
-      card.className = 'product-card';
+      card.className = `product-card${isUnavailable ? ' product-card-unavailable' : ''}`;
       card.innerHTML = `
         <div class="product-top">
-          <span class="product-station-badge ${product.station}">${product.station === 'KITCHEN' ? '🍳 Cocina' : '🍸 Barra'}</span>
+          <div class="product-top-badges">
+            <span class="product-station-badge ${product.station}">${product.station === 'KITCHEN' ? '🍳 Cocina' : '🍸 Barra'}</span>
+            ${isUnavailable ? '<span class="product-unavailable-badge badge-unavailable">Agotado</span>' : ''}
+          </div>
           <span style="font-size: 0.75rem; color: var(--text-dim);">${product.category}</span>
         </div>
         <div class="product-name">${product.name}</div>
         <div class="product-price-cop">${formatCOP(product.salePriceCOP)}</div>
       `;
 
-      card.onclick = () => openProductModifierModal(product);
+      card.onclick = () => {
+        if (isUnavailable) {
+          showToast('Producto agotado temporalmente', 'info');
+          return;
+        }
+        openProductModifierModal(product);
+      };
       DOM.productsGrid.appendChild(card);
     });
   }
@@ -900,6 +910,10 @@
   // Modal de Modificadores Rápidos
   let currentConfiguringProduct = null;
   function openProductModifierModal(product) {
+    if (product.isAvailable === false) {
+      showToast('Producto agotado temporalmente', 'info');
+      return;
+    }
     currentConfiguringProduct = product;
     STATE.selectedModifiersTemp = [];
     DOM.modalModProductName.textContent = `${product.name} (${formatCOP(product.salePriceCOP)})`;
@@ -932,6 +946,10 @@
   };
 
   function addItemToCart(product, modifiers, notes) {
+    if (product.isAvailable === false) {
+      showToast('Producto agotado temporalmente', 'info');
+      return;
+    }
     const existing = STATE.currentCart.find(item =>
       item.product.id === product.id &&
       item.modifiers.join(',') === modifiers.join(',') &&

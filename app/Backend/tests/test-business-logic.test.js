@@ -27,6 +27,7 @@ const http = require('node:http');
 const { routeOrderItems } = require('../src/services/routingService');
 const eventService = require('../src/services/eventService');
 const OrderController = require('../src/controllers/orderController');
+const InventoryController = require('../src/controllers/inventoryController');
 const app = require('../src/index');
 
 describe('SISTEMA DE COMANDAS SAAS - SUITE DE PRUEBAS DE LÓGICA DE NEGOCIO Y PERSISTENCIA', () => {
@@ -704,6 +705,106 @@ describe('SISTEMA DE COMANDAS SAAS - SUITE DE PRUEBAS DE LÓGICA DE NEGOCIO Y PE
       await OrderController.getStationOrders(reqEmpty, resEmpty);
       assert(Array.isArray(jsonResultEmpty));
       assert.equal(jsonResultEmpty.length, 2);
+    });
+  });
+
+  // =========================================================================
+  // 10. GESTIÓN DE MESAS Y VALIDACIÓN DE ELIMINACIÓN (deleteTable)
+  // =========================================================================
+  describe('10. Gestión de Mesas y Validación de Eliminación (deleteTable)', () => {
+    const createMockRes = () => {
+      const mock = {
+        statusCode: 200,
+        body: null,
+        status(code) {
+          this.statusCode = code;
+          return this;
+        },
+        json(data) {
+          this.body = data;
+          return this;
+        }
+      };
+      return mock;
+    };
+
+    test('Retorna 404 si la mesa a eliminar no existe', async () => {
+      const req = { db, params: { id: 'mesa-inexistente' } };
+      const res = createMockRes();
+
+      await InventoryController.deleteTable(req, res);
+
+      assert.equal(res.statusCode, 404);
+      assert.equal(res.body.error, 'Mesa no encontrada');
+    });
+
+    test('Retorna 409 y mensaje de error si la mesa está en estado OCCUPIED', async () => {
+      await Table.create({
+        id: 'tab-test-occupied',
+        number: 901,
+        zone: 'TERRAZA',
+        capacity: 4,
+        status: 'OCCUPIED'
+      }, db);
+
+      const req = { db, params: { id: 'tab-test-occupied' } };
+      const res = createMockRes();
+
+      await InventoryController.deleteTable(req, res);
+
+      assert.equal(res.statusCode, 409);
+      assert.equal(res.body.message, 'No se puede eliminar una mesa ocupada o en proceso de pago');
+      assert.equal(res.body.error, 'No se puede eliminar una mesa ocupada o en proceso de pago');
+
+      // Verificar que la mesa NO haya sido eliminada
+      const tableStillExists = await Table.findById('tab-test-occupied', db);
+      assert(tableStillExists !== null);
+    });
+
+    test('Retorna 409 y mensaje de error si la mesa está en estado PAYING', async () => {
+      await Table.create({
+        id: 'tab-test-paying',
+        number: 902,
+        zone: 'SALON',
+        capacity: 4,
+        status: 'PAYING'
+      }, db);
+
+      const req = { db, params: { id: 'tab-test-paying' } };
+      const res = createMockRes();
+
+      await InventoryController.deleteTable(req, res);
+
+      assert.equal(res.statusCode, 409);
+      assert.equal(res.body.message, 'No se puede eliminar una mesa ocupada o en proceso de pago');
+      assert.equal(res.body.error, 'No se puede eliminar una mesa ocupada o en proceso de pago');
+
+      // Verificar que la mesa NO haya sido eliminada
+      const tableStillExists = await Table.findById('tab-test-paying', db);
+      assert(tableStillExists !== null);
+    });
+
+    test('Elimina correctamente la mesa si su estado es AVAILABLE y responde 200', async () => {
+      await Table.create({
+        id: 'tab-test-available',
+        number: 903,
+        zone: 'VIP',
+        capacity: 6,
+        status: 'AVAILABLE'
+      }, db);
+
+      const req = { db, params: { id: 'tab-test-available' } };
+      const res = createMockRes();
+
+      await InventoryController.deleteTable(req, res);
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.body.message, 'Mesa eliminada correctamente');
+      assert.equal(res.body.id, 'tab-test-available');
+
+      // Verificar que la mesa fue eliminada
+      const deletedTable = await Table.findById('tab-test-available', db);
+      assert.equal(deletedTable, null);
     });
   });
 });

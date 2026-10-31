@@ -801,6 +801,46 @@ input:focus, select:focus, textarea:focus {
   transform: scale(0.98);
 }
 
+.product-card-unavailable,
+.product-card.product-card-unavailable {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.product-card-unavailable:hover,
+.product-card-unavailable:focus,
+.product-card-unavailable:active,
+.product-card.product-card-unavailable:hover,
+.product-card.product-card-unavailable:focus,
+.product-card.product-card-unavailable:active {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--border-subtle);
+}
+
+.product-top-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.product-unavailable-badge,
+.product-card-unavailable .product-unavailable-badge,
+.product-card-unavailable .badge-unavailable {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--color-occupied);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
 .product-top {
   display: flex;
   justify-content: space-between;
