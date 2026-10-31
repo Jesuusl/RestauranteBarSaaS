@@ -52,6 +52,10 @@
 
       <!-- Estado SSE, Reloj y Usuario -->
       <div class="header-status-panel">
+        <button type="button" id="btn-backend-config" class="backend-config-btn" title="Configurar URL del Backend">
+          <span class="backend-btn-icon">⚙️</span>
+          <span class="backend-btn-label">URL Backend</span>
+        </button>
         <div id="sse-status-badge" class="sse-pill" title="Estado de Conexión en Tiempo Real">
           <span class="pulse-dot"></span>
           <span id="sse-status-text">SSE En Línea</span>
@@ -481,6 +485,41 @@
         <button type="button" id="btn-confirm-add-with-mod" class="btn-submit-order" style="margin-top: 0.5rem;">
           <span>➕</span> Agregar a la Comanda
         </button>
+      </div>
+    </div>
+
+    <!-- Modal 3: Configuración de URL del Backend Remoto (Render) -->
+    <div id="modal-backend-config" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-backend-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <h3 id="modal-backend-title">⚙️ Conexión con Backend</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem;">Configura la URL de tu API remota en Render o servidor local</p>
+          </div>
+          <button type="button" class="modal-close-btn" data-close-modal="modal-backend-config" aria-label="Cerrar modal">&times;</button>
+        </div>
+
+        <form id="form-backend-config" onsubmit="return false;">
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div>
+              <label for="backend-url-input" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">URL del Backend (Render / Servidor):</label>
+              <input type="text" id="backend-url-input" placeholder="https://mi-backend.onrender.com" style="width: 100%; font-family: monospace; font-size: 0.88rem;">
+              <div style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">
+                <span>URL actual activa: </span>
+                <code id="backend-current-url-display" style="color: var(--accent-gold); font-size: 0.8rem; word-break: break-all;"></code>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; justify-content: flex-end; align-items: center; margin-top: 0.5rem; flex-wrap: wrap;">
+              <button type="button" id="btn-reset-backend-url" class="btn-clear-cart" style="padding: 0.65rem 1rem; font-size: 0.85rem;">
+                Restablecer por Defecto
+              </button>
+              <button type="submit" id="btn-save-backend-url" class="btn-submit-order" style="margin-top: 0; padding: 0.65rem 1.25rem; font-size: 0.88rem;">
+                💾 Guardar y Conectar
+              </button>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
 

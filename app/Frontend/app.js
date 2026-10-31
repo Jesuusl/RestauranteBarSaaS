@@ -7,9 +7,20 @@
   'use strict';
 
   // --- CONFIGURACIÓN & ESTADO GLOBAL ---
-  const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:3001'
-    : window.location.origin;
+  function getApiBase() {
+    const customUrl = localStorage.getItem('comanda_api_url');
+    if (customUrl && customUrl.trim()) {
+      return customUrl.trim().replace(/\/+$/, '');
+    }
+    if (window.ENV_API_URL && typeof window.ENV_API_URL === 'string' && window.ENV_API_URL.trim()) {
+      return window.ENV_API_URL.trim().replace(/\/+$/, '');
+    }
+    return (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:3001'
+      : window.location.origin;
+  }
+
+  let API_BASE = getApiBase();
 
   const STATE = {
     activeView: 'view-tables',
@@ -101,6 +112,13 @@
   const DOM = {
     navButtons: document.querySelectorAll('.nav-tab-btn'),
     views: document.querySelectorAll('.view-section'),
+    btnBackendConfig: document.getElementById('btn-backend-config'),
+    modalBackendConfig: document.getElementById('modal-backend-config'),
+    backendUrlInput: document.getElementById('backend-url-input'),
+    backendCurrentUrlDisplay: document.getElementById('backend-current-url-display'),
+    btnSaveBackendUrl: document.getElementById('btn-save-backend-url'),
+    btnResetBackendUrl: document.getElementById('btn-reset-backend-url'),
+    formBackendConfig: document.getElementById('form-backend-config'),
     sseBadge: document.getElementById('sse-status-badge'),
     sseText: document.getElementById('sse-status-text'),
     clock: document.getElementById('digital-clock'),
@@ -279,6 +297,13 @@
 
   // --- SERVIDOR SSE (Server-Sent Events) ---
   function initSSE() {
+    if (STATE.sseEventSource) {
+      try {
+        STATE.sseEventSource.close();
+      } catch (_) {}
+      STATE.sseEventSource = null;
+    }
+
     try {
       const eventSource = new EventSource(`${API_BASE}/api/events`);
       STATE.sseEventSource = eventSource;
@@ -1496,9 +1521,101 @@
     }
   });
 
+  // --- CONFIGURACIÓN DE URL DEL BACKEND (Render / Local) ---
+  function setupBackendConfigModal() {
+    function openConfigModal() {
+      if (DOM.modalBackendConfig) {
+        const currentSaved = localStorage.getItem('comanda_api_url') || '';
+        if (DOM.backendUrlInput) {
+          DOM.backendUrlInput.value = currentSaved;
+        }
+        if (DOM.backendCurrentUrlDisplay) {
+          DOM.backendCurrentUrlDisplay.textContent = API_BASE;
+        }
+        DOM.modalBackendConfig.classList.add('open');
+        setTimeout(() => {
+          if (DOM.backendUrlInput) {
+            DOM.backendUrlInput.focus();
+            DOM.backendUrlInput.select();
+          }
+        }, 50);
+      } else {
+        const currentVal = localStorage.getItem('comanda_api_url') || API_BASE;
+        const inputUrl = window.prompt(
+          'Ingresa la URL del backend de Render (ej. https://mi-backend.onrender.com) o deja en blanco para restablecer por defecto:',
+          currentVal
+        );
+        if (inputUrl !== null) {
+          applyBackendUrl(inputUrl);
+        }
+      }
+    }
+
+    function applyBackendUrl(url) {
+      const trimmed = (url || '').trim();
+      if (!trimmed) {
+        localStorage.removeItem('comanda_api_url');
+        API_BASE = getApiBase();
+        showToast(`URL restablecida por defecto: ${API_BASE}`, 'info');
+      } else {
+        let normalized = trimmed;
+        if (!/^https?:\/\//i.test(normalized)) {
+          normalized = 'https://' + normalized;
+        }
+        normalized = normalized.replace(/\/+$/, '');
+        localStorage.setItem('comanda_api_url', normalized);
+        API_BASE = getApiBase();
+        showToast(`Backend configurado: ${API_BASE}`, 'success');
+      }
+
+      if (DOM.backendCurrentUrlDisplay) {
+        DOM.backendCurrentUrlDisplay.textContent = API_BASE;
+      }
+      if (DOM.modalBackendConfig) {
+        DOM.modalBackendConfig.classList.remove('open');
+      }
+
+      // Reiniciar conexión SSE y recargar datos iniciales
+      initSSE();
+      loadInitialData();
+    }
+
+    if (DOM.btnBackendConfig) {
+      DOM.btnBackendConfig.addEventListener('click', openConfigModal);
+    }
+
+    if (DOM.formBackendConfig) {
+      DOM.formBackendConfig.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const url = DOM.backendUrlInput ? DOM.backendUrlInput.value : '';
+        applyBackendUrl(url);
+      });
+    }
+
+    if (DOM.btnSaveBackendUrl) {
+      DOM.btnSaveBackendUrl.addEventListener('click', (e) => {
+        e.preventDefault();
+        const url = DOM.backendUrlInput ? DOM.backendUrlInput.value : '';
+        applyBackendUrl(url);
+      });
+    }
+
+    if (DOM.btnResetBackendUrl) {
+      DOM.btnResetBackendUrl.addEventListener('click', () => {
+        if (DOM.backendUrlInput) DOM.backendUrlInput.value = '';
+        applyBackendUrl('');
+      });
+    }
+
+    // Exponer para testing o invocación desde consola
+    window.setBackendUrl = applyBackendUrl;
+    window.openBackendConfig = openConfigModal;
+  }
+
   // --- ARRANQUE DE LA APLICACIÓN ---
   initClock();
   setupNavigation();
+  setupBackendConfigModal();
   initSSE();
   setupSplitItemsControls();
   loadInitialData();
@@ -1508,6 +1625,9 @@
   window.loadOfflineState = loadOfflineState;
   window.renderBillingView = renderBillingView;
   window.executeBlindClose = executeBlindClose;
+  window.getApiBase = getApiBase;
+  window.initSSE = initSSE;
+  window.loadInitialData = loadInitialData;
   window.STATE = STATE;
 
 })();
