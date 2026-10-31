@@ -5,9 +5,9 @@ class Ingredient {
     this.id = data.id;
     this.name = data.name;
     this.unit = data.unit; // ML, GR, UNIT
-    this.currentStock = Number(data.currentStock ?? 0);
-    this.minStock = Number(data.minStock ?? 0);
-    this.costPerUnitCOP = Number(data.costPerUnitCOP ?? 0);
+    this.currentStock = Number(data.currentStock ?? data.currentstock ?? 0);
+    this.minStock = Number(data.minStock ?? data.minstock ?? 0);
+    this.costPerUnitCOP = Number(data.costPerUnitCOP ?? data.costperunitcop ?? 0);
   }
 
   static async create(data, customDb) {

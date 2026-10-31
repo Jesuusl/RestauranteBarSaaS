@@ -459,10 +459,23 @@
 
       if (resTables.ok && resProducts.ok) {
         STATE.tables = await resTables.json();
-        STATE.products = await resProducts.json();
+        const rawProducts = await resProducts.json();
+        STATE.products = Array.isArray(rawProducts)
+          ? rawProducts.map(p => {
+              const rawAvail = p.isAvailable ?? p.isavailable;
+              return {
+                ...p,
+                salePriceCOP: Number(p.salePriceCOP ?? p.salepricecop ?? 0),
+                isAvailable: rawAvail === undefined
+                  ? true
+                  : (rawAvail === true || rawAvail === 1 || rawAvail === 'true' || rawAvail === 't' || rawAvail === '1')
+              };
+            })
+          : [];
         STATE.isBackendOnline = true;
         apiSuccess = true;
         await loadKdsOrders();
+        saveOfflineState();
       } else {
         throw new Error('Fallback a almacenamiento local');
       }

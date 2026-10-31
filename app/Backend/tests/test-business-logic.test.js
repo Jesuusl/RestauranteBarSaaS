@@ -807,4 +807,66 @@ describe('SISTEMA DE COMANDAS SAAS - SUITE DE PRUEBAS DE LÓGICA DE NEGOCIO Y PE
       assert.equal(deletedTable, null);
     });
   });
+
+  // =========================================================================
+  // 11. COMPATIBILIDAD CON COLUMNAS EN MINÚSCULAS DE POSTGRESQL / SUPABASE
+  // =========================================================================
+  describe('11. Mapeo de Columnas en Minúsculas desde PostgreSQL / Supabase', () => {
+    test('Product preserva salePriceCOP e isAvailable cuando PostgreSQL devuelve columnas en minúsculas', () => {
+      // PostgreSQL (node-postgres) devuelve NUMERIC como string y nombres de columnas sin comillas en minúsculas
+      const pgAvailableRow = {
+        id: 'prod-pg-1',
+        name: 'Hamburguesa Artesanal',
+        category: 'Carnes',
+        station: 'KITCHEN',
+        salepricecop: '35000.00',
+        isavailable: true
+      };
+      const prod1 = new Product(pgAvailableRow);
+      assert.equal(prod1.salePriceCOP, 35000);
+      assert.equal(prod1.isAvailable, true);
+
+      const pgUnavailableRow = {
+        id: 'prod-pg-2',
+        name: 'Limonada de Coco',
+        category: 'Bebidas',
+        station: 'BAR',
+        salepricecop: '14000.00',
+        isavailable: false
+      };
+      const prod2 = new Product(pgUnavailableRow);
+      assert.equal(prod2.salePriceCOP, 14000);
+      assert.equal(prod2.isAvailable, false);
+    });
+
+    test('Ingredient y Table preservan valores cuando PostgreSQL devuelve columnas en minúsculas', () => {
+      const ing = new Ingredient({
+        id: 'ing-pg-1',
+        name: 'Ron Añejo',
+        unit: 'ML',
+        currentstock: 1500,
+        minstock: 300,
+        costperunitcop: '65.00'
+      });
+      assert.equal(ing.currentStock, 1500);
+      assert.equal(ing.minStock, 300);
+      assert.equal(ing.costPerUnitCOP, 65);
+
+      const table = new Table({
+        id: 'tab-pg-1',
+        number: 12,
+        zone: 'Terraza',
+        capacity: 4,
+        posx: 120,
+        posy: 240,
+        status: 'OCCUPIED',
+        currentsessionid: 'sess-pg-12',
+        lastorderat: '2026-10-31T19:00:00.000Z'
+      });
+      assert.equal(table.posX, 120);
+      assert.equal(table.posY, 240);
+      assert.equal(table.currentSessionId, 'sess-pg-12');
+      assert.equal(table.lastOrderAt, '2026-10-31T19:00:00.000Z');
+    });
+  });
 });

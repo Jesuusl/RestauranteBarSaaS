@@ -7,11 +7,11 @@ class Table {
     this.number = Number(data.number);
     this.zone = data.zone;
     this.capacity = Number(data.capacity);
-    this.posX = Number(data.posX ?? 0);
-    this.posY = Number(data.posY ?? 0);
+    this.posX = Number(data.posX ?? data.posx ?? 0);
+    this.posY = Number(data.posY ?? data.posy ?? 0);
     this.status = data.status || 'AVAILABLE'; // AVAILABLE, OCCUPIED, RESERVED, PAYING, CLEANING
-    this.currentSessionId = data.currentSessionId || null;
-    this.lastOrderAt = data.lastOrderAt || null;
+    this.currentSessionId = data.currentSessionId ?? data.currentsessionid ?? null;
+    this.lastOrderAt = data.lastOrderAt ?? data.lastorderat ?? null;
   }
 
   static async create(tableData, customDb) {

@@ -6,8 +6,11 @@ class Product {
     this.name = data.name;
     this.category = data.category;
     this.station = data.station; // KITCHEN | BAR
-    this.salePriceCOP = Number(data.salePriceCOP ?? 0);
-    this.isAvailable = data.isAvailable === 1 || data.isAvailable === true;
+    this.salePriceCOP = Number(data.salePriceCOP ?? data.salepricecop ?? 0);
+    const rawAvail = data.isAvailable ?? data.isavailable;
+    this.isAvailable = rawAvail === undefined
+      ? true
+      : (rawAvail === true || rawAvail === 1 || rawAvail === 'true' || rawAvail === 't' || rawAvail === '1');
     this.recipe = (data.recipe || []).map(r => ({
       id: r.id,
       ingredientId: r.ingredientId || r.ingredientid,
@@ -20,7 +23,11 @@ class Product {
 
   static async create(productData, customDb) {
     const db = customDb || getDatabase();
-    const isAvail = productData.isAvailable !== false;
+    const rawAvail = productData.isAvailable ?? productData.isavailable;
+    const isAvail = rawAvail === undefined
+      ? true
+      : (rawAvail === true || rawAvail === 1 || rawAvail === 'true' || rawAvail === 't' || rawAvail === '1');
+    const rawPrice = productData.salePriceCOP ?? productData.salepricecop ?? 0;
     const id = productData.id || `prod-${Date.now()}`;
     await db.query(`
       INSERT INTO products (id, name, category, station, salePriceCOP, isAvailable)
@@ -36,7 +43,7 @@ class Product {
       productData.name,
       productData.category,
       productData.station,
-      Number(productData.salePriceCOP || 0),
+      Number(rawPrice || 0),
       isAvail
     ]);
 
