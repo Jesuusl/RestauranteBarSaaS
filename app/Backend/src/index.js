@@ -136,6 +136,23 @@ app.post('/api/shifts/:id/blind-close', ShiftController.blindClose);
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`🚀 Comanda Backend escuchando en http://localhost:${PORT}`);
+
+    // --- AUTO-PING KEEP-ALIVE (Evita que Render entre en reposo) ---
+    const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL || process.env.SERVER_URL;
+    if (RENDER_EXTERNAL_URL) {
+      const PING_INTERVAL_MS = 10 * 60 * 1000; // Cada 10 minutos
+      setInterval(async () => {
+        try {
+          const res = await fetch(`${RENDER_EXTERNAL_URL}/api/health`);
+          if (res.ok) {
+            console.log(`💓 [Keep-Alive] Ping exitoso a ${RENDER_EXTERNAL_URL}/api/health (${new Date().toLocaleTimeString()})`);
+          }
+        } catch (err) {
+          console.warn(`⚠️ [Keep-Alive] Ping falló: ${err.message}`);
+        }
+      }, PING_INTERVAL_MS);
+      console.log(`🛡️ Auto Keep-Alive activado cada 10 min para: ${RENDER_EXTERNAL_URL}`);
+    }
   });
 }
 

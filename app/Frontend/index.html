@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="description" content="COMMANDA SaaS - Sistema Integral de Comandas Táctil, Plano de Mesas, KDS y Facturación COP para Restaurante-Bar">
+  <meta name="description" content="GHANIMA SaaS - Sistema Integral de Comandas Táctil, Plano de Mesas, KDS y Facturación COP para Restaurante-Bar">
   <meta name="theme-color" content="#0a0f1d">
-  <title>COMMANDA POS | Sistema de Comandas Restaurante-Bar</title>
+  <title>GHANIMA POS | Sistema de Comandas Restaurante-Bar</title>
 
   <!-- Google Fonts: Outfit & Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,7 +25,7 @@
       <div class="brand-wrapper">
         <div class="brand-logo-icon" aria-hidden="true">🍸</div>
         <div class="brand-text-block">
-          <h1>COMMANDA</h1>
+          <h1>GHANIMA</h1>
           <span class="brand-badge">SaaS RESTO-BAR</span>
         </div>
       </div>
@@ -65,8 +65,8 @@
         </div>
         <div id="digital-clock" class="clock-display" aria-live="off">--:--:--</div>
         <div class="user-tag" title="Mesero en Turno">
-          <div class="avatar" id="current-user-avatar">C</div>
-          <span id="current-user-name">Carlos Mesero</span>
+          <div class="avatar" id="current-user-avatar">M</div>
+          <span id="current-user-name">Mesero de Turno</span>
         </div>
       </div>
     </header>
@@ -185,7 +185,7 @@
                 <span>Subtotal Neto</span>
                 <span id="cart-subtotal-cop">$ 0 COP</span>
               </div>
-              <div class="cart-total-row">
+              <div class="cart-total-row" style="display: none;">
                 <span>Impoconsumo (8% Col)</span>
                 <span id="cart-tax-cop">$ 0 COP</span>
               </div>
@@ -272,7 +272,7 @@
         <div class="module-header-row">
           <div>
             <h2 id="billing-title">Facturación y Cobro COP</h2>
-            <p style="color: var(--text-muted); font-size: 0.85rem;">Normativa tributaria colombiana: Impoconsumo 8% y Propina Voluntaria 10%</p>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">Sistema de Facturación Directa (Sin Impoconsumo ni Propina)</p>
           </div>
 
           <!-- Selector de Mesa a Facturar -->
@@ -291,9 +291,9 @@
 
             <div class="invoice-preview-box">
               <div class="invoice-header-legal">
-                <strong>COMMANDA RESTO-BAR S.A.S.</strong><br>
-                NIT: 901.834.521-4 | Régimen Impoconsumo<br>
-                Medellín, Antioquia - Colombia<br>
+                <strong>GHANIMA RESTO-BAR S.A.S.</strong><br>
+                NIT: 901.834.521-4 | Régimen Simplificado<br>
+                Montería, Córdoba - Colombia<br>
                 <span id="inv-table-meta">Mesa: -- | Sesión: --</span>
               </div>
 
@@ -302,17 +302,17 @@
                 <div style="text-align: center; color: var(--text-dim); padding: 1rem;">Selecciona una mesa con orden activa</div>
               </div>
 
-              <!-- Desglose Legal de Impuestos -->
+              <!-- Desglose de Totales -->
               <div style="border-top: 1px dashed #334155; padding-top: 0.75rem; display: flex; flex-direction: column; gap: 0.35rem;">
                 <div class="invoice-summary-line">
-                  <span>SUBTOTAL NETO:</span>
+                  <span>SUBTOTAL:</span>
                   <span id="inv-subtotal-val">$ 0 COP</span>
                 </div>
-                <div class="invoice-summary-line">
+                <div class="invoice-summary-line" style="display: none;">
                   <span>IMPOCONSUMO (8%):</span>
                   <span id="inv-tax-val">$ 0 COP</span>
                 </div>
-                <div class="invoice-summary-line">
+                <div class="invoice-summary-line" style="display: none;">
                   <span>PROPINA SUGERIDA (10%):</span>
                   <span id="inv-tip-val">$ 0 COP</span>
                 </div>
@@ -323,14 +323,14 @@
               </div>
             </div>
 
-            <!-- Toggle de Propina Voluntaria -->
-            <div class="tip-toggle-box">
+            <!-- Toggle de Propina (Deshabilitado / Oculto) -->
+            <div class="tip-toggle-box" style="display: none;">
               <div>
                 <strong>Propina Voluntaria Sugerida (10%)</strong>
                 <p style="font-size: 0.78rem; color: var(--text-muted);">El comensal decide libremente si acepta o rechaza la propina</p>
               </div>
               <label class="switch" aria-label="Aceptar propina voluntaria">
-                <input type="checkbox" id="tip-switch" checked>
+                <input type="checkbox" id="tip-switch">
                 <span class="slider"></span>
               </label>
             </div>
@@ -482,7 +482,7 @@
           <div style="display: flex; flex-direction: column; gap: 1rem;">
             <div>
               <label for="modal-waiter-name" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Mesero Asignado:</label>
-              <input type="text" id="modal-waiter-name" value="Carlos Mesero" style="width: 100%;">
+              <input type="text" id="modal-waiter-name" value="Mesero de Turno" placeholder="Nombre del mesero" style="width: 100%;">
             </div>
             <div>
               <label for="modal-diner-count" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem;">Número de Comensales:</label>

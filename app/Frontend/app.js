@@ -646,7 +646,7 @@
 
   DOM.btnConfirmOpenTable.onclick = async () => {
     const tableId = DOM.modalOpenTableId.value;
-    const waiter = DOM.modalWaiterName.value || 'Carlos Mesero';
+    const waiter = DOM.modalWaiterName.value || 'Mesero de Turno';
     const diners = parseInt(DOM.modalDinerCount.value) || 2;
     const sessionId = `sess-${Date.now()}`;
 
@@ -902,7 +902,7 @@
     DOM.posTableSelect.value = tableId;
     DOM.posActiveTableBadge.textContent = `Mesa #${table.number}`;
     DOM.posActiveSessionLabel.textContent = `Sesión de ${table.zone}`;
-    DOM.posActiveSessionMeta.textContent = `Mesero: ${table.waiterName || 'Carlos Mesero'} | Comensales: ${table.dinerCount || 2}`;
+    DOM.posActiveSessionMeta.textContent = `Mesero: ${table.waiterName || 'Mesero de Turno'} | Comensales: ${table.dinerCount || 2}`;
 
     switchView('view-pos');
   }
@@ -1036,11 +1036,11 @@
       DOM.cartItemsContainer.appendChild(row);
     });
 
-    const impoconsumo = Math.round(subtotal * 0.08);
-    const total = subtotal + impoconsumo;
+    const impoconsumo = 0; // Sin Impoconsumo
+    const total = subtotal;
 
     DOM.cartSubtotal.textContent = formatCOP(subtotal);
-    DOM.cartTax.textContent = formatCOP(impoconsumo);
+    DOM.cartTax.textContent = formatCOP(0);
     DOM.cartTotal.textContent = formatCOP(total);
     DOM.btnSubmitOrder.disabled = false;
   }
@@ -1600,16 +1600,15 @@
       });
     }
 
-    const tax = Math.round(subtotal * 0.08); // Impoconsumo 8%
-    const includeTip = DOM.tipSwitch.checked;
-    const tip = includeTip ? Math.round(subtotal * 0.10) : 0; // Propina voluntaria 10%
-    const grandTotal = subtotal + tax + tip;
+    const tax = 0; // Sin Impoconsumo
+    const tip = 0; // Sin Propina
+    const grandTotal = subtotal;
 
     activeInvoiceData = { subtotal, tax, tip, grandTotal, items };
 
     DOM.invSubtotalVal.textContent = formatCOP(subtotal);
-    DOM.invTaxVal.textContent = formatCOP(tax);
-    DOM.invTipVal.textContent = formatCOP(tip);
+    DOM.invTaxVal.textContent = formatCOP(0);
+    DOM.invTipVal.textContent = formatCOP(0);
     DOM.invGrandTotalVal.textContent = formatCOP(grandTotal);
 
     updateCashChange();
@@ -1819,9 +1818,9 @@
 
     for (let d = 1; d <= splitItemsDinersCount; d++) {
       const sub = dinerSubtotals[d];
-      const tax = Math.round(sub * 0.08); // 8% Impoconsumo
-      const tip = includeTip ? Math.round(sub * 0.10) : 0; // 10% Propina
-      const total = sub + tax + tip;
+      const tax = 0; // Sin Impoconsumo
+      const tip = 0; // Sin Propina
+      const total = sub;
       grandSumSubinvoices += total;
 
       const card = document.createElement('div');
@@ -1839,19 +1838,9 @@
         </div>
         <div class="subinvoice-totals-breakdown">
           <div style="display: flex; justify-content: space-between;">
-            <span>Subtotal Neto:</span>
+            <span>Subtotal:</span>
             <span>${formatCOP(sub)}</span>
           </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span>Impoconsumo (8%):</span>
-            <span>${formatCOP(tax)}</span>
-          </div>
-          ${includeTip ? `
-            <div style="display: flex; justify-content: space-between; color: var(--color-available);">
-              <span>Propina Vol. (10%):</span>
-              <span>${formatCOP(tip)}</span>
-            </div>
-          ` : ''}
         </div>
         <div class="subinvoice-grand-total">
           <span>Total Comensal ${d}:</span>
