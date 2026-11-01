@@ -3,13 +3,15 @@ const Product = require('../models/Product');
 const Table = require('../models/Table');
 const Waste = require('../models/Waste');
 const { registerWaste } = require('../services/inventoryService');
+const { withTransaction, getDatabase } = require('../config/database');
 
 class InventoryController {
   // --- INGREDIENTES / STOCK ---
   static async getIngredients(req, res) {
     try {
-      const db = req.db;
-      const ingredients = await Ingredient.findAll(db);
+      const db = req.db || getDatabase();
+      const tenantId = req.tenantId || req.tenant?.id || req.query?.tenantId || 'tenant-default';
+      const ingredients = await Ingredient.findAll(db, tenantId);
       return res.json(ingredients);
     } catch (err) {
       return res.status(500).json({ error: err.message });
@@ -18,8 +20,9 @@ class InventoryController {
 
   static async getLowStock(req, res) {
     try {
-      const db = req.db;
-      const lowStock = await Ingredient.getLowStock(db);
+      const db = req.db || getDatabase();
+      const tenantId = req.tenantId || req.tenant?.id || req.query?.tenantId || 'tenant-default';
+      const lowStock = await Ingredient.getLowStock(db, tenantId);
       return res.json(lowStock);
     } catch (err) {
       return res.status(500).json({ error: err.message });
@@ -29,8 +32,9 @@ class InventoryController {
   // --- PRODUCTOS ---
   static async getProducts(req, res) {
     try {
-      const db = req.db;
-      const products = await Product.findAll(db);
+      const db = req.db || getDatabase();
+      const tenantId = req.tenantId || req.tenant?.id || req.query?.tenantId || 'tenant-default';
+      const products = await Product.findAll(db, tenantId);
       return res.json(products);
     } catch (err) {
       return res.status(500).json({ error: err.message });
@@ -39,7 +43,7 @@ class InventoryController {
 
   static async getProductById(req, res) {
     try {
-      const db = req.db;
+      const db = req.db || getDatabase();
       const product = await Product.findById(req.params.id, db);
       if (!product) {
         return res.status(404).json({ error: 'Producto no encontrado' });
@@ -52,7 +56,8 @@ class InventoryController {
 
   static async createProduct(req, res) {
     try {
-      const db = req.db;
+      const db = req.db || getDatabase();
+      const tenantId = req.tenantId || req.tenant?.id || req.body.tenantId || 'tenant-default';
       const { name, category, station, salePriceCOP } = req.body;
 
       if (!name || !category || !station) {
@@ -70,6 +75,7 @@ class InventoryController {
 
       const product = await Product.create({
         ...req.body,
+        tenantId,
         station: normalizedStation
       }, db);
       return res.status(201).json(product);
@@ -80,7 +86,7 @@ class InventoryController {
 
   static async updateProduct(req, res) {
     try {
-      const db = req.db;
+      const db = req.db || getDatabase();
       const { station, salePriceCOP } = req.body;
 
       if (station !== undefined) {
@@ -107,7 +113,7 @@ class InventoryController {
 
   static async deleteProduct(req, res) {
     try {
-      const db = req.db;
+      const db = req.db || getDatabase();
       const deleted = await Product.delete(req.params.id, db);
       if (!deleted) {
         return res.status(404).json({ error: 'Producto no encontrado' });
@@ -121,9 +127,10 @@ class InventoryController {
   // --- MESAS (CONTROLADOR AUXILIAR) ---
   static async getTables(req, res) {
     try {
-      const db = req.db;
+      const db = req.db || getDatabase();
+      const tenantId = req.tenantId || req.tenant?.id || req.query?.tenantId || 'tenant-default';
       const { zone } = req.query;
-      const tables = zone ? await Table.findByZone(zone, db) : await Table.findAll(db);
+      const tables = zone ? await Table.findByZone(zone, db, tenantId) : await Table.findAll(db, tenantId);
       return res.json(tables);
     } catch (err) {
       return res.status(500).json({ error: err.message });
@@ -132,7 +139,7 @@ class InventoryController {
 
   static async getTableById(req, res) {
     try {
-      const db = req.db;
+      const db = req.db || getDatabase();
       const table = await Table.findById(req.params.id, db);
       if (!table) {
         return res.status(404).json({ error: 'Mesa no encontrada' });
@@ -145,7 +152,8 @@ class InventoryController {
 
   static async createTable(req, res) {
     try {
-      const db = req.db;
+      const db = req.db || getDatabase();
+      const tenantId = req.tenantId || req.tenant?.id || req.body.tenantId || 'tenant-default';
       const { number, zone, capacity } = req.body;
 
       if (number === undefined || !zone || capacity === undefined) {
@@ -160,7 +168,7 @@ class InventoryController {
         return res.status(400).json({ error: 'La capacidad debe ser mayor a 0' });
       }
 
-      const table = await Table.create(req.body, db);
+      const table = await Table.create({ ...req.body, tenantId }, db);
       return res.status(201).json(table);
     } catch (err) {
       return res.status(400).json({ error: err.message });
@@ -169,7 +177,7 @@ class InventoryController {
 
   static async updateTable(req, res) {
     try {
-      const db = req.db;
+      const db = req.db || getDatabase();
       const { number, capacity } = req.body;
 
       if (number !== undefined && (isNaN(Number(number)) || Number(number) <= 0)) {
@@ -192,7 +200,7 @@ class InventoryController {
 
   static async deleteTable(req, res) {
     try {
-      const db = req.db;
+      const db = req.db || getDatabase();
       const table = await Table.findById(req.params.id, db);
       if (!table) {
         return res.status(404).json({ error: 'Mesa no encontrada' });
@@ -218,8 +226,16 @@ class InventoryController {
   // --- MERMAS ---
   static async createWaste(req, res) {
     try {
-      const db = req.db;
-      const waste = await registerWaste(req.body, db);
+      const db = req.db || getDatabase();
+      const tenantId = req.tenantId || req.tenant?.id || req.body.tenantId || 'tenant-default';
+
+      const waste = await withTransaction(db, async (txDb) => {
+        return await registerWaste({
+          ...req.body,
+          tenantId
+        }, txDb);
+      });
+
       return res.status(201).json(waste);
     } catch (err) {
       return res.status(400).json({ error: err.message });
@@ -228,8 +244,9 @@ class InventoryController {
 
   static async getWastes(req, res) {
     try {
-      const db = req.db;
-      const wastes = await Waste.findAll(db);
+      const db = req.db || getDatabase();
+      const tenantId = req.tenantId || req.tenant?.id || req.query?.tenantId || 'tenant-default';
+      const wastes = await Waste.findAll(db, tenantId);
       return res.json(wastes);
     } catch (err) {
       return res.status(500).json({ error: err.message });

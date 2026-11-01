@@ -3,6 +3,7 @@ const { getDatabase } = require('../config/database');
 class Session {
   constructor(data) {
     this.id = data.id;
+    this.tenantId = data.tenantId || data.tenantid || 'tenant-default';
     this.tableId = data.tableId || data.tableid;
     this.waiterId = data.waiterId || data.waiterid;
     this.waiterName = data.waiterName || data.waitername;
@@ -18,13 +19,15 @@ class Session {
 
   static async create(sessionData, customDb) {
     const db = customDb || getDatabase();
-    const session = new Session(sessionData);
+    const tenantId = sessionData.tenantId || sessionData.tenantid || 'tenant-default';
+    const session = new Session({ ...sessionData, tenantId });
     const subAccountsJson = session.subAccounts ? JSON.stringify(session.subAccounts) : null;
 
     await db.query(`
-      INSERT INTO sessions (id, tableId, waiterId, waiterName, dinerCount, openedAt, closedAt, status, subAccounts)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      INSERT INTO sessions (id, tenantId, tableId, waiterId, waiterName, dinerCount, openedAt, closedAt, status, subAccounts)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       ON CONFLICT (id) DO UPDATE SET
+        tenantId = EXCLUDED.tenantId,
         tableId = EXCLUDED.tableId,
         waiterId = EXCLUDED.waiterId,
         waiterName = EXCLUDED.waiterName,
@@ -35,6 +38,7 @@ class Session {
         subAccounts = EXCLUDED.subAccounts
     `, [
       session.id,
+      session.tenantId,
       session.tableId,
       session.waiterId,
       session.waiterName,

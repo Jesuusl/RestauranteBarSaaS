@@ -3,6 +3,7 @@ const { getDatabase } = require('../config/database');
 class Product {
   constructor(data) {
     this.id = data.id;
+    this.tenantId = data.tenantId || data.tenantid || 'tenant-default';
     this.name = data.name;
     this.category = data.category;
     this.station = data.station; // KITCHEN | BAR
@@ -29,10 +30,13 @@ class Product {
       : (rawAvail === true || rawAvail === 1 || rawAvail === 'true' || rawAvail === 't' || rawAvail === '1');
     const rawPrice = productData.salePriceCOP ?? productData.salepricecop ?? 0;
     const id = productData.id || `prod-${Date.now()}`;
+    const tenantId = productData.tenantId || productData.tenantid || 'tenant-default';
+
     await db.query(`
-      INSERT INTO products (id, name, category, station, salePriceCOP, isAvailable)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO products (id, tenantId, name, category, station, salePriceCOP, isAvailable)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (id) DO UPDATE SET
+        tenantId = EXCLUDED.tenantId,
         name = EXCLUDED.name,
         category = EXCLUDED.category,
         station = EXCLUDED.station,
@@ -40,6 +44,7 @@ class Product {
         isAvailable = EXCLUDED.isAvailable
     `, [
       id,
+      tenantId,
       productData.name,
       productData.category,
       productData.station,
@@ -81,9 +86,14 @@ class Product {
     return new Product({ ...row, recipe: recipeRes.rows });
   }
 
-  static async findAll(customDb) {
+  static async findAll(customDb, tenantId = 'tenant-default') {
     const db = customDb || getDatabase();
-    const res = await db.query('SELECT * FROM products ORDER BY category, name');
+    const queryText = tenantId && tenantId !== 'ALL'
+      ? 'SELECT * FROM products WHERE tenantId = $1 ORDER BY category, name'
+      : 'SELECT * FROM products ORDER BY category, name';
+    const params = tenantId && tenantId !== 'ALL' ? [tenantId] : [];
+
+    const res = await db.query(queryText, params);
     const products = [];
 
     for (const row of res.rows) {
@@ -100,9 +110,14 @@ class Product {
     return products;
   }
 
-  static async findByStation(station, customDb) {
+  static async findByStation(station, customDb, tenantId = 'tenant-default') {
     const db = customDb || getDatabase();
-    const res = await db.query('SELECT id FROM products WHERE station = $1 ORDER BY name', [station]);
+    const queryText = tenantId && tenantId !== 'ALL'
+      ? 'SELECT id FROM products WHERE station = $1 AND tenantId = $2 ORDER BY name'
+      : 'SELECT id FROM products WHERE station = $1 ORDER BY name';
+    const params = tenantId && tenantId !== 'ALL' ? [station, tenantId] : [station];
+
+    const res = await db.query(queryText, params);
     const products = [];
     for (const r of res.rows) {
       const prod = await Product.findById(r.id, db);

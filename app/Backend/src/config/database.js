@@ -46,14 +46,19 @@ function translatePostgresToSqlite(sql, params = []) {
 }
 
 /**
- * Crea un adaptador en memoria basado en SQLite que emula la API asíncrona de PostgreSQL / pg.Pool.
+ * Crea un adaptador basado en SQLite (en memoria o persistente en archivo)
+ * que emula la API asíncrona de PostgreSQL / pg.Pool.
+ *
+ * @param {string} [filePath=':memory:']
  */
-function createMemoryAdapter() {
-  const sqliteDb = new DatabaseSync(':memory:');
+function createSqliteAdapter(filePath = ':memory:') {
+  const sqliteDb = new DatabaseSync(filePath);
   sqliteDb.exec('PRAGMA foreign_keys = ON;');
+  const isMemory = filePath === ':memory:';
 
   const adapter = {
-    isMemory: true,
+    isMemory,
+    isSqlite: true,
     sqliteDb,
     async query(text, params = []) {
       const { sql, params: sanitizedParams } = translatePostgresToSqlite(text, params);
@@ -103,29 +108,35 @@ let defaultMemoryAdapter = null;
 /**
  * Obtiene la conexión de base de datos activa o crea un adaptador adecuado.
  * - Si customTarget === ':memory:', retorna un adaptador aislado en memoria.
+ * - Si NODE_ENV === 'test', usa adaptador en memoria para pruebas.
  * - Si hay conexión configurada a PostgreSQL / Supabase, retorna el Pool con wrapper unificado.
- * - De lo contrario o en modo test/fallback, retorna el adaptador en memoria.
+ * - De lo contrario en local, usa SQLite persistente en comanda.sqlite.
  *
  * @param {string} [customTarget]
  * @returns {Object} Adaptador con método query(text, params)
  */
 function getDatabase(customTarget) {
   if (customTarget === ':memory:') {
-    return createMemoryAdapter();
+    return createSqliteAdapter(':memory:');
   }
 
-  // Si ya tenemos un pool o adaptador de memoria por defecto
+  // Si ya tenemos un pool o adaptador por defecto
   if (activePool) return activePool;
   if (defaultMemoryAdapter) return defaultMemoryAdapter;
+
+  if (process.env.NODE_ENV === 'test') {
+    defaultMemoryAdapter = createSqliteAdapter(':memory:');
+    return defaultMemoryAdapter;
+  }
 
   const connectionString = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
   const isPostgresConfigured = connectionString &&
     !connectionString.includes('your-project-id') &&
     !connectionString.includes('your-password');
 
-  // En entorno de pruebas automatizadas o si no está configurada la BD remota, usar fallback de memoria
-  if (process.env.NODE_ENV === 'test' || !isPostgresConfigured) {
-    defaultMemoryAdapter = createMemoryAdapter();
+  if (!isPostgresConfigured) {
+    const sqlitePath = path.join(__dirname, '..', '..', 'comanda.sqlite');
+    defaultMemoryAdapter = createSqliteAdapter(sqlitePath);
     return defaultMemoryAdapter;
   }
 
@@ -146,10 +157,22 @@ function getDatabase(customTarget) {
       isPool: true,
       pool,
       async query(text, params = []) {
-        return await pool.query(text, params);
+        if (defaultMemoryAdapter && (!activePool || pool.ended || pool._ended)) {
+          return await defaultMemoryAdapter.query(text, params);
+        }
+        try {
+          return await pool.query(text, params);
+        } catch (err) {
+          if (err.code === 'EAI_AGAIN' || err.code === 'ENOTFOUND' || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
+            if (defaultMemoryAdapter) {
+              return await defaultMemoryAdapter.query(text, params);
+            }
+          }
+          throw err;
+        }
       },
       async exec(sql) {
-        return await pool.query(sql);
+        return await this.query(sql);
       },
       async close() {
         await pool.end();
@@ -159,8 +182,9 @@ function getDatabase(customTarget) {
 
     return activePool;
   } catch (err) {
-    console.warn('⚠️ Error al configurar Pool de PostgreSQL, activando modo memoria fallback:', err.message);
-    defaultMemoryAdapter = createMemoryAdapter();
+    console.warn('⚠️ Error al configurar Pool de PostgreSQL, activando modo SQLite persistente:', err.message);
+    const sqlitePath = path.join(__dirname, '..', '..', 'comanda.sqlite');
+    defaultMemoryAdapter = createSqliteAdapter(sqlitePath);
     return defaultMemoryAdapter;
   }
 }
@@ -177,6 +201,94 @@ async function query(text, params = []) {
 }
 
 /**
+ * Ejecuta un bloque de operaciones dentro de una transacción ACID garantizada.
+ * Soporta tanto PostgreSQL (BEGIN / COMMIT / ROLLBACK sobre pg.Pool client)
+ * como SQLite (BEGIN TRANSACTION / COMMIT / ROLLBACK sobre DatabaseSync).
+ * Previene transacciones anidadas si db.isTransaction ya es true.
+ *
+ * @param {Object|Function} customDb - Conexión de base de datos o callback
+ * @param {Function} [callback] - Función asíncrona a ejecutar con txDb
+ * @returns {Promise<any>}
+ */
+async function withTransaction(customDb, callback) {
+  let db = customDb;
+  let fn = callback;
+
+  if (typeof customDb === 'function') {
+    fn = customDb;
+    db = getDatabase();
+  } else if (!db) {
+    db = getDatabase();
+  }
+
+  if (!fn || typeof fn !== 'function') {
+    throw new Error('withTransaction requiere un callback de ejecución.');
+  }
+
+  // Si ya estamos dentro de una transacción, no anidar BEGIN
+  if (db.isTransaction) {
+    return await fn(db);
+  }
+
+  // Manejo de pg.Pool (PostgreSQL)
+  if (db.isPool && db.pool) {
+    let client;
+    try {
+      client = await db.pool.connect();
+    } catch (err) {
+      if (err.code === 'EAI_AGAIN' || err.code === 'ENOTFOUND' || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
+        console.warn('⚠️ Fallback a SQLite persistente en transacción por indisponibilidad de PostgreSQL.');
+        activePool = null;
+        const sqlitePath = path.join(__dirname, '..', '..', 'comanda.sqlite');
+        const sqliteAdapter = createSqliteAdapter(sqlitePath);
+        defaultMemoryAdapter = sqliteAdapter;
+        return await withTransaction(sqliteAdapter, fn);
+      }
+      throw err;
+    }
+
+    try {
+      await client.query('BEGIN');
+      const txDb = {
+        isPool: true,
+        isTransaction: true,
+        query: (text, params = []) => client.query(text, params),
+        exec: (sql) => client.query(sql)
+      };
+      const result = await fn(txDb);
+      await client.query('COMMIT');
+      return result;
+    } catch (err) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (_) {}
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Manejo de SQLite (en memoria o persistente)
+  if (db.sqliteDb) {
+    db.sqliteDb.exec('BEGIN TRANSACTION;');
+    const txDb = { ...db, isTransaction: true };
+    try {
+      const result = await fn(txDb);
+      db.sqliteDb.exec('COMMIT;');
+      return result;
+    } catch (err) {
+      try {
+        db.sqliteDb.exec('ROLLBACK;');
+      } catch (_) {}
+      throw err;
+    }
+  }
+
+  // Fallback si la instancia no reconoce adaptadores
+  return await fn(db);
+}
+
+/**
  * Inicializa el esquema DDL ejecutando schema.sql sobre la base de datos indicada.
  * @param {Object} [db]
  */
@@ -185,10 +297,84 @@ async function initSchema(db) {
   const schemaPath = path.join(__dirname, '..', 'db', 'schema.sql');
   const sql = fs.readFileSync(schemaPath, 'utf8');
 
-  if (targetDb.isMemory) {
+  // Si es SQLite (memoria o archivo)
+  if (targetDb.isMemory || targetDb.isSqlite || targetDb.sqliteDb) {
+    // Migraciones previas seguras en caso de base de datos SQLite preexistente en disco
+    const sqliteColumns = [
+      "ALTER TABLE tables ADD COLUMN tenantId TEXT NOT NULL DEFAULT 'tenant-default'",
+      "ALTER TABLE sessions ADD COLUMN tenantId TEXT NOT NULL DEFAULT 'tenant-default'",
+      "ALTER TABLE ingredients ADD COLUMN tenantId TEXT NOT NULL DEFAULT 'tenant-default'",
+      "ALTER TABLE products ADD COLUMN tenantId TEXT NOT NULL DEFAULT 'tenant-default'",
+      "ALTER TABLE orders ADD COLUMN tenantId TEXT NOT NULL DEFAULT 'tenant-default'",
+      "ALTER TABLE shift_audits ADD COLUMN tenantId TEXT NOT NULL DEFAULT 'tenant-default'",
+      "ALTER TABLE wastes ADD COLUMN tenantId TEXT NOT NULL DEFAULT 'tenant-default'",
+      "ALTER TABLE invoices ADD COLUMN tenantId TEXT NOT NULL DEFAULT 'tenant-default'",
+      "ALTER TABLE invoices ADD COLUMN saleType VARCHAR(20) NOT NULL DEFAULT 'TABLE'",
+      "ALTER TABLE invoices ADD COLUMN customerNote TEXT",
+      "ALTER TABLE invoices ADD COLUMN cashierName VARCHAR(150)"
+    ];
+    for (const alterSql of sqliteColumns) {
+      try {
+        await targetDb.exec(alterSql);
+      } catch (_) {}
+    }
+
     await targetDb.exec('PRAGMA foreign_keys = ON;\n' + sql);
-  } else {
+    return;
+  }
+
+  // Si es PostgreSQL / Supabase
+  try {
+    // 1. Migraciones seguras previas sobre tablas existentes (antes de crear índices que referencien columnas nuevas)
+    const alterQueries = [
+      `ALTER TABLE tables ADD COLUMN IF NOT EXISTS tenantId TEXT NOT NULL DEFAULT 'tenant-default'`,
+      `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS tenantId TEXT NOT NULL DEFAULT 'tenant-default'`,
+      `ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS tenantId TEXT NOT NULL DEFAULT 'tenant-default'`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS tenantId TEXT NOT NULL DEFAULT 'tenant-default'`,
+      `ALTER TABLE orders ADD COLUMN IF NOT EXISTS tenantId TEXT NOT NULL DEFAULT 'tenant-default'`,
+      `ALTER TABLE shift_audits ADD COLUMN IF NOT EXISTS tenantId TEXT NOT NULL DEFAULT 'tenant-default'`,
+      `ALTER TABLE wastes ADD COLUMN IF NOT EXISTS tenantId TEXT NOT NULL DEFAULT 'tenant-default'`,
+      `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS tenantId TEXT NOT NULL DEFAULT 'tenant-default'`,
+      `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS saleType VARCHAR(20) NOT NULL DEFAULT 'TABLE'`,
+      `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS customerNote TEXT`,
+      `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS cashierName VARCHAR(150)`
+    ];
+
+    for (const q of alterQueries) {
+      try {
+        await targetDb.query(q);
+      } catch (_) {
+        // Ignorar si la tabla aún no existe o la columna ya está presente
+      }
+    }
+
+    // 2. Ejecutar esquema DDL principal
     await targetDb.query(sql);
+
+    // 3. Modificaciones de nulabilidad en columnas existentes
+    const constraintQueries = [
+      `ALTER TABLE invoices ALTER COLUMN sessionId DROP NOT NULL`,
+      `ALTER TABLE invoices ALTER COLUMN tableId DROP NOT NULL`
+    ];
+
+    for (const q of constraintQueries) {
+      try {
+        await targetDb.query(q);
+      } catch (_) {}
+    }
+  } catch (err) {
+    if (err.code === 'EAI_AGAIN' || err.code === 'ENOTFOUND' || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
+      console.warn('⚠️ No se pudo inicializar esquema en PostgreSQL remoto (' + err.code + '). Inicializando en SQLite persistente.');
+      if (activePool) {
+        try { await activePool.close(); } catch (_) {}
+        activePool = null;
+      }
+      const sqlitePath = path.join(__dirname, '..', '..', 'comanda.sqlite');
+      defaultMemoryAdapter = createSqliteAdapter(sqlitePath);
+      await initSchema(defaultMemoryAdapter);
+      return;
+    }
+    throw err;
   }
 }
 
@@ -209,7 +395,9 @@ async function closeDatabase() {
 module.exports = {
   getDatabase,
   query,
+  withTransaction,
   initSchema,
   closeDatabase,
-  supabase
+  supabase,
+  translatePostgresToSqlite
 };

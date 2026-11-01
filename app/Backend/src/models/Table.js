@@ -4,6 +4,7 @@ const eventService = require('../services/eventService');
 class Table {
   constructor(data) {
     this.id = data.id;
+    this.tenantId = data.tenantId || data.tenantid || 'tenant-default';
     this.number = Number(data.number);
     this.zone = data.zone;
     this.capacity = Number(data.capacity);
@@ -17,11 +18,14 @@ class Table {
   static async create(tableData, customDb) {
     const db = customDb || getDatabase();
     const id = tableData.id || `tab-${tableData.number !== undefined ? tableData.number : Date.now()}`;
-    const table = new Table({ ...tableData, id });
+    const tenantId = tableData.tenantId || tableData.tenantid || 'tenant-default';
+    const table = new Table({ ...tableData, id, tenantId });
+
     await db.query(`
-      INSERT INTO tables (id, number, zone, capacity, posX, posY, status, currentSessionId, lastOrderAt)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      INSERT INTO tables (id, tenantId, number, zone, capacity, posX, posY, status, currentSessionId, lastOrderAt)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       ON CONFLICT (id) DO UPDATE SET
+        tenantId = EXCLUDED.tenantId,
         number = EXCLUDED.number,
         zone = EXCLUDED.zone,
         capacity = EXCLUDED.capacity,
@@ -32,6 +36,7 @@ class Table {
         lastOrderAt = EXCLUDED.lastOrderAt
     `, [
       table.id,
+      table.tenantId,
       table.number,
       table.zone,
       table.capacity,
@@ -41,6 +46,7 @@ class Table {
       table.currentSessionId,
       table.lastOrderAt
     ]);
+
     if (eventService) {
       eventService.broadcast(eventService.EVENT_TYPES.TABLE_STATUS_CHANGED, table);
     }
@@ -53,21 +59,36 @@ class Table {
     return res.rows[0] ? new Table(res.rows[0]) : null;
   }
 
-  static async findByNumber(number, customDb) {
+  static async findByNumber(number, customDb, tenantId = 'tenant-default') {
     const db = customDb || getDatabase();
-    const res = await db.query('SELECT * FROM tables WHERE number = $1', [number]);
+    const queryText = tenantId && tenantId !== 'ALL'
+      ? 'SELECT * FROM tables WHERE number = $1 AND tenantId = $2'
+      : 'SELECT * FROM tables WHERE number = $1';
+    const params = tenantId && tenantId !== 'ALL' ? [number, tenantId] : [number];
+
+    const res = await db.query(queryText, params);
     return res.rows[0] ? new Table(res.rows[0]) : null;
   }
 
-  static async findAll(customDb) {
+  static async findAll(customDb, tenantId = 'tenant-default') {
     const db = customDb || getDatabase();
-    const res = await db.query('SELECT * FROM tables ORDER BY number ASC');
+    const queryText = tenantId && tenantId !== 'ALL'
+      ? 'SELECT * FROM tables WHERE tenantId = $1 ORDER BY number ASC'
+      : 'SELECT * FROM tables ORDER BY number ASC';
+    const params = tenantId && tenantId !== 'ALL' ? [tenantId] : [];
+
+    const res = await db.query(queryText, params);
     return res.rows.map(r => new Table(r));
   }
 
-  static async findByZone(zone, customDb) {
+  static async findByZone(zone, customDb, tenantId = 'tenant-default') {
     const db = customDb || getDatabase();
-    const res = await db.query('SELECT * FROM tables WHERE zone = $1 ORDER BY number ASC', [zone]);
+    const queryText = tenantId && tenantId !== 'ALL'
+      ? 'SELECT * FROM tables WHERE zone = $1 AND tenantId = $2 ORDER BY number ASC'
+      : 'SELECT * FROM tables WHERE zone = $1 ORDER BY number ASC';
+    const params = tenantId && tenantId !== 'ALL' ? [zone, tenantId] : [zone];
+
+    const res = await db.query(queryText, params);
     return res.rows.map(r => new Table(r));
   }
 
@@ -79,7 +100,7 @@ class Table {
       WHERE id = $3
     `, [status, currentSessionId, id]);
     const updated = await Table.findById(id, db);
-    if (updated) {
+    if (updated && eventService) {
       eventService.broadcast(eventService.EVENT_TYPES.TABLE_STATUS_CHANGED, updated);
     }
     return updated;
@@ -90,6 +111,7 @@ class Table {
     await db.query('UPDATE tables SET lastOrderAt = $1 WHERE id = $2', [timestamp, id]);
     return await Table.findById(id, db);
   }
+
   static async update(id, data, customDb) {
     const db = customDb || getDatabase();
     const existing = await Table.findById(id, db);

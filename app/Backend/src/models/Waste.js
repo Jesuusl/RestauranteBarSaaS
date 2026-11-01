@@ -3,6 +3,7 @@ const { getDatabase } = require('../config/database');
 class Waste {
   constructor(data) {
     this.id = data.id;
+    this.tenantId = data.tenantId || data.tenantid || 'tenant-default';
     this.productId = data.productId || data.productid || null;
     this.ingredientId = data.ingredientId || data.ingredientid || null;
     this.quantity = Number(data.quantity);
@@ -16,13 +17,15 @@ class Waste {
 
   static async create(data, customDb) {
     const db = customDb || getDatabase();
-    const waste = new Waste(data);
+    const tenantId = data.tenantId || data.tenantid || 'tenant-default';
+    const waste = new Waste({ ...data, tenantId });
 
     await db.query(`
       INSERT INTO wastes (
-        id, productId, ingredientId, quantity, unit, type, reason, authorizedBy, totalCostCOP, createdAt
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        id, tenantId, productId, ingredientId, quantity, unit, type, reason, authorizedBy, totalCostCOP, createdAt
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       ON CONFLICT (id) DO UPDATE SET
+        tenantId = EXCLUDED.tenantId,
         productId = EXCLUDED.productId,
         ingredientId = EXCLUDED.ingredientId,
         quantity = EXCLUDED.quantity,
@@ -34,6 +37,7 @@ class Waste {
         createdAt = EXCLUDED.createdAt
     `, [
       waste.id,
+      waste.tenantId,
       waste.productId,
       waste.ingredientId,
       waste.quantity,
@@ -54,15 +58,25 @@ class Waste {
     return res.rows[0] ? new Waste(res.rows[0]) : null;
   }
 
-  static async findAll(customDb) {
+  static async findAll(customDb, tenantId = 'tenant-default') {
     const db = customDb || getDatabase();
-    const res = await db.query('SELECT * FROM wastes ORDER BY createdAt DESC');
+    const queryText = tenantId && tenantId !== 'ALL'
+      ? 'SELECT * FROM wastes WHERE tenantId = $1 ORDER BY createdAt DESC'
+      : 'SELECT * FROM wastes ORDER BY createdAt DESC';
+    const params = tenantId && tenantId !== 'ALL' ? [tenantId] : [];
+
+    const res = await db.query(queryText, params);
     return res.rows.map(r => new Waste(r));
   }
 
-  static async getTotalCostByType(type, customDb) {
+  static async getTotalCostByType(type, customDb, tenantId = 'tenant-default') {
     const db = customDb || getDatabase();
-    const res = await db.query('SELECT SUM(totalCostCOP) as total FROM wastes WHERE type = $1', [type]);
+    const queryText = tenantId && tenantId !== 'ALL'
+      ? 'SELECT SUM(totalCostCOP) as total FROM wastes WHERE type = $1 AND tenantId = $2'
+      : 'SELECT SUM(totalCostCOP) as total FROM wastes WHERE type = $1';
+    const params = tenantId && tenantId !== 'ALL' ? [type, tenantId] : [type];
+
+    const res = await db.query(queryText, params);
     const row = res.rows[0];
     return row ? Number(row.total || 0) : 0;
   }

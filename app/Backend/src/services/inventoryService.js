@@ -99,6 +99,7 @@ async function deductRecipeStock(orderItems, customDb) {
  * @param {Object} wasteData
  * @param {string} [wasteData.productId]
  * @param {string} [wasteData.ingredientId]
+ * @param {string} [wasteData.tenantId]
  * @param {number} wasteData.quantity
  * @param {string} wasteData.unit - ML, GR, UNIT
  * @param {string} wasteData.type - WASTE | COURTESY | STAFF_MEAL
@@ -110,6 +111,7 @@ async function deductRecipeStock(orderItems, customDb) {
 async function registerWaste(wasteData, customDb) {
   const db = customDb || getDatabase();
   const id = wasteData.id || `waste-${Date.now()}`;
+  const tenantId = wasteData.tenantId || 'tenant-default';
   let totalCostCOP = 0;
 
   if (wasteData.ingredientId) {
@@ -137,6 +139,7 @@ async function registerWaste(wasteData, customDb) {
 
   const waste = await Waste.create({
     id,
+    tenantId,
     productId: wasteData.productId || null,
     ingredientId: wasteData.ingredientId || null,
     quantity: wasteData.quantity,

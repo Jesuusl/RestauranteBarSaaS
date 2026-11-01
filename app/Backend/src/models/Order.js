@@ -3,11 +3,13 @@ const { getDatabase } = require('../config/database');
 class Order {
   constructor(data) {
     this.id = data.id;
+    this.tenantId = data.tenantId || data.tenantid || 'tenant-default';
     this.sessionId = data.sessionId || data.sessionid;
     this.tableId = data.tableId || data.tableid;
+    this.tableNumber = data.tableNumber !== undefined ? (data.tableNumber !== null ? Number(data.tableNumber) : null) : (data.tablenumber !== undefined ? (data.tablenumber !== null ? Number(data.tablenumber) : null) : null);
     this.waiterId = data.waiterId || data.waiterid;
     this.station = data.station; // KITCHEN | BAR
-    this.status = data.status || 'PENDING'; // PENDING, IN_PREP, READY, SERVED
+    this.status = data.status || 'PENDING'; // PENDING, IN_PREP, READY, SERVED, CANCELLED
     this.createdAt = data.createdAt || data.createdat || new Date().toISOString();
     this.items = (data.items || []).map(item => {
       const rawMods = item.modifiers;
@@ -29,12 +31,14 @@ class Order {
 
   static async create(orderData, customDb) {
     const db = customDb || getDatabase();
-    const order = new Order(orderData);
+    const tenantId = orderData.tenantId || orderData.tenantid || 'tenant-default';
+    const order = new Order({ ...orderData, tenantId });
 
     await db.query(`
-      INSERT INTO orders (id, sessionId, tableId, waiterId, station, status, createdAt)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO orders (id, tenantId, sessionId, tableId, waiterId, station, status, createdAt)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       ON CONFLICT (id) DO UPDATE SET
+        tenantId = EXCLUDED.tenantId,
         sessionId = EXCLUDED.sessionId,
         tableId = EXCLUDED.tableId,
         waiterId = EXCLUDED.waiterId,
@@ -43,6 +47,7 @@ class Order {
         createdAt = EXCLUDED.createdAt
     `, [
       order.id,
+      order.tenantId,
       order.sessionId,
       order.tableId,
       order.waiterId,
@@ -81,14 +86,21 @@ class Order {
     }
 
     // Actualizar última orden en la mesa
-    await db.query('UPDATE tables SET lastOrderAt = $1 WHERE id = $2', [order.createdAt, order.tableId]);
+    if (order.tableId) {
+      await db.query('UPDATE tables SET lastOrderAt = $1 WHERE id = $2', [order.createdAt, order.tableId]);
+    }
 
     return await Order.findById(order.id, db);
   }
 
   static async findById(id, customDb) {
     const db = customDb || getDatabase();
-    const res = await db.query('SELECT * FROM orders WHERE id = $1', [id]);
+    const res = await db.query(`
+      SELECT o.*, t.number AS tableNumber
+      FROM orders o
+      LEFT JOIN tables t ON o.tableId = t.id
+      WHERE o.id = $1
+    `, [id]);
     const row = res.rows[0];
     if (!row) return null;
 
@@ -107,13 +119,18 @@ class Order {
     return orders;
   }
 
-  static async findByStationAndStatus(station, status, customDb) {
+  static async findByStationAndStatus(station, status, customDb, tenantId = 'tenant-default') {
     const db = customDb || getDatabase();
     const conditions = [];
     const params = [];
 
     const normalizedStation = station ? station.toString().trim().toUpperCase() : null;
     const normalizedStatus = status ? status.toString().trim().toUpperCase() : null;
+
+    if (tenantId && tenantId !== 'ALL') {
+      params.push(tenantId);
+      conditions.push(`tenantId = $${params.length}`);
+    }
 
     if (normalizedStation && normalizedStation !== 'ALL') {
       params.push(normalizedStation);
@@ -139,7 +156,8 @@ class Order {
 
   static async updateStatus(id, newStatus, customDb) {
     const db = customDb || getDatabase();
-    await db.query('UPDATE orders SET status = $1 WHERE id = $2', [newStatus, id]);
+    const normStatus = newStatus === 'IN_PREPARATION' ? 'IN_PREP' : newStatus;
+    await db.query('UPDATE orders SET status = $1 WHERE id = $2', [normStatus, id]);
     return await Order.findById(id, db);
   }
 }

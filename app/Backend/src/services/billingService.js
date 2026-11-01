@@ -7,6 +7,7 @@
  * - En régimen de Impoconsumo, el IVA es 0%.
  * - La propina es voluntaria y sugerida del 10% calculada sobre el subtotal.
  * - Los valores en pesos colombianos se redondean a enteros sin centavos.
+ * - Se admite configuración fiscal dinámica por restaurante (taxConfig).
  */
 
 /**
@@ -15,17 +16,34 @@
  * @param {Array<{productId?: string, productName?: string, quantity: number, unitPriceCOP: number}>} items
  * @param {boolean} [includeTip=true] - Si el cliente acepta la propina voluntaria sugerida (10%)
  * @param {number} [customIvaRate=0.00] - Tasa de IVA opcional (por defecto 0% en régimen común de impoconsumo)
+ * @param {Object} [taxConfig={}] - Configuración tributaria específica del restaurante
  * @returns {Object} Desglose completo de factura
  */
-function calculateCOPInvoice(items, includeTip = true, customIvaRate = 0.00) {
+function calculateCOPInvoice(items, includeTip = true, customIvaRate = 0.00, taxConfig = {}) {
+  const applyImpoconsumo = taxConfig.applyImpoconsumo !== undefined
+    ? Boolean(taxConfig.applyImpoconsumo)
+    : (taxConfig.impoconsumo !== undefined ? Boolean(taxConfig.impoconsumo) : true);
+  const impoconsumoRate = applyImpoconsumo
+    ? (taxConfig.impoconsumoRate !== undefined ? Number(taxConfig.impoconsumoRate) : 0.08)
+    : 0.00;
+
+  const applyTip = taxConfig.applyTip !== undefined
+    ? Boolean(taxConfig.applyTip)
+    : (taxConfig.suggestedTip !== undefined ? Boolean(taxConfig.suggestedTip) : true);
+  const tipRate = (applyTip && includeTip)
+    ? (taxConfig.tipRate !== undefined ? Number(taxConfig.tipRate) : 0.10)
+    : 0.00;
+
+  const ivaRate = customIvaRate !== undefined ? Number(customIvaRate) : 0.00;
+
   if (!Array.isArray(items) || items.length === 0) {
     return {
       subtotalCOP: 0,
-      impoconsumoRate: 0.08,
+      impoconsumoRate,
       impoconsumoCOP: 0,
-      ivaRate: customIvaRate,
+      ivaRate,
       ivaCOP: 0,
-      tipRate: includeTip ? 0.10 : 0.00,
+      tipRate,
       tipCOP: 0,
       totalCOP: 0,
       itemsCount: 0
@@ -42,17 +60,14 @@ function calculateCOPInvoice(items, includeTip = true, customIvaRate = 0.00) {
     return accum + Math.round(qty * price);
   }, 0);
 
-  // 2. Impoconsumo 8% (Ley colombiana restaurantes/bares)
-  const IMPOCONSUMO_RATE = 0.08;
-  const impoconsumoCOP = Math.round(subtotalCOP * IMPOCONSUMO_RATE);
+  // 2. Impoconsumo (8% por defecto)
+  const impoconsumoCOP = Math.round(subtotalCOP * impoconsumoRate);
 
   // 3. IVA (Configurable, normalmente 0% para restaurantes con Impoconsumo)
-  const ivaRate = customIvaRate;
   const ivaCOP = Math.round(subtotalCOP * ivaRate);
 
-  // 4. Propina sugerida 10%
-  const TIP_RATE = 0.10;
-  const tipCOP = includeTip ? Math.round(subtotalCOP * TIP_RATE) : 0;
+  // 4. Propina sugerida (10% por defecto)
+  const tipCOP = Math.round(subtotalCOP * tipRate);
 
   // 5. Total a pagar en COP (redondeo comercial entero)
   const totalCOP = subtotalCOP + impoconsumoCOP + ivaCOP + tipCOP;
@@ -61,11 +76,11 @@ function calculateCOPInvoice(items, includeTip = true, customIvaRate = 0.00) {
 
   return {
     subtotalCOP,
-    impoconsumoRate: IMPOCONSUMO_RATE,
+    impoconsumoRate,
     impoconsumoCOP,
     ivaRate,
     ivaCOP,
-    tipRate: includeTip ? TIP_RATE : 0.00,
+    tipRate,
     tipCOP,
     totalCOP,
     itemsCount: totalItemsCount
@@ -123,9 +138,10 @@ function splitBillEqual(totalCOP, parts) {
  * @param {Array<{subAccountId: string, dinerName?: string, items: Array}>} subAccounts
  * @param {Array<{productId: string, quantity: number, unitPriceCOP?: number}>} [masterOrderItems] - Ítems originales de la comanda para validación cruzada estricta
  * @param {boolean} [includeTip=true]
+ * @param {Object} [taxConfig={}]
  * @returns {Object} Desglose por subcuenta y totales acumulados
  */
-function splitBillByItems(subAccounts, masterOrderItems = null, includeTip = true) {
+function splitBillByItems(subAccounts, masterOrderItems = null, includeTip = true, taxConfig = {}) {
   if (!Array.isArray(subAccounts) || subAccounts.length === 0) {
     throw new Error('Se requiere al menos una subcuenta para la división por ítems.');
   }
@@ -158,7 +174,7 @@ function splitBillByItems(subAccounts, masterOrderItems = null, includeTip = tru
   }
 
   const subAccountInvoices = subAccounts.map(sub => {
-    const invoice = calculateCOPInvoice(sub.items, includeTip);
+    const invoice = calculateCOPInvoice(sub.items, includeTip, 0.00, taxConfig);
     return {
       subAccountId: sub.subAccountId,
       dinerName: sub.dinerName || `Comensal ${sub.subAccountId}`,

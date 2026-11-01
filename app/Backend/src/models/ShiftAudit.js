@@ -3,6 +3,7 @@ const { getDatabase } = require('../config/database');
 class ShiftAudit {
   constructor(data) {
     this.id = data.id;
+    this.tenantId = data.tenantId || data.tenantid || 'tenant-default';
     this.shiftNumber = Number(data.shiftNumber ?? data.shiftnumber ?? 1);
     this.cashierId = data.cashierId || data.cashierid;
     this.cashierName = data.cashierName || data.cashiername;
@@ -25,13 +26,15 @@ class ShiftAudit {
   static async openShift(data, customDb) {
     const db = customDb || getDatabase();
     const id = data.id || `shift-${Date.now()}`;
+    const tenantId = data.tenantId || data.tenantid || 'tenant-default';
     const openedAt = data.openedAt || new Date().toISOString();
 
     await db.query(`
       INSERT INTO shift_audits (
-        id, shiftNumber, cashierId, cashierName, openedAt, status, notes
-      ) VALUES ($1, $2, $3, $4, $5, 'OPEN', $6)
+        id, tenantId, shiftNumber, cashierId, cashierName, openedAt, status, notes
+      ) VALUES ($1, $2, $3, $4, $5, $6, 'OPEN', $7)
       ON CONFLICT (id) DO UPDATE SET
+        tenantId = EXCLUDED.tenantId,
         shiftNumber = EXCLUDED.shiftNumber,
         cashierId = EXCLUDED.cashierId,
         cashierName = EXCLUDED.cashierName,
@@ -39,6 +42,7 @@ class ShiftAudit {
         notes = EXCLUDED.notes
     `, [
       id,
+      tenantId,
       data.shiftNumber || 1,
       data.cashierId,
       data.cashierName,
@@ -55,14 +59,20 @@ class ShiftAudit {
     return res.rows[0] ? new ShiftAudit(res.rows[0]) : null;
   }
 
-  static async findActive(customDb) {
+  static async findActive(customDb, tenantId = 'tenant-default') {
     const db = customDb || getDatabase();
-    const res = await db.query("SELECT * FROM shift_audits WHERE status = 'OPEN' ORDER BY openedAt DESC LIMIT 1");
+    const queryText = tenantId && tenantId !== 'ALL'
+      ? "SELECT * FROM shift_audits WHERE status = 'OPEN' AND tenantId = $1 ORDER BY openedAt DESC LIMIT 1"
+      : "SELECT * FROM shift_audits WHERE status = 'OPEN' ORDER BY openedAt DESC LIMIT 1";
+    const params = tenantId && tenantId !== 'ALL' ? [tenantId] : [];
+
+    const res = await db.query(queryText, params);
     return res.rows[0] ? new ShiftAudit(res.rows[0]) : null;
   }
 
   /**
    * Ejecuta el cierre ciego calculando las discrepancias contra las ventas reales del sistema.
+   * Filtra por tenantId para asegurar aislamiento estricto de restaurantes.
    *
    * @param {string} shiftId
    * @param {Object} declared - { declaredCashCOP, declaredCardCOP, declaredTransfersCOP }
@@ -74,15 +84,17 @@ class ShiftAudit {
     const shift = await ShiftAudit.findById(shiftId, db);
     if (!shift) throw new Error(`Turno no encontrado: ${shiftId}`);
 
+    const tenantId = shift.tenantId || 'tenant-default';
     const closedAt = new Date().toISOString();
 
-    // Consultar ventas registradas durante el turno
+    // Consultar ventas registradas durante el turno uniendo con invoices por tenantId
     const res = await db.query(`
       SELECT p.method, SUM(p.amountCOP) as total
       FROM invoice_payments p
-      WHERE p.createdAt >= $1 AND p.createdAt <= $2
+      JOIN invoices i ON p.invoiceId = i.id
+      WHERE p.createdAt >= $1 AND p.createdAt <= $2 AND i.tenantId = $3
       GROUP BY p.method
-    `, [shift.openedAt, closedAt]);
+    `, [shift.openedAt, closedAt, tenantId]);
 
     let systemCash = 0;
     let systemCard = 0;
