@@ -27,20 +27,15 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Iniciar esquema de base de datos y auto-siembra segura en primer arranque
+// Iniciar esquema de base de datos y asegurar usuario maestro CEO (sin datos demo)
 initSchema().then(async () => {
   if (process.env.NODE_ENV !== 'test') {
     try {
       const db = getDatabase();
-      const res = await db.query('SELECT COUNT(*) as count FROM users');
-      const userCount = Number(res.rows[0]?.count || 0);
-      if (userCount === 0) {
-        console.log('🌱 Base de datos virgen detectada. Ejecutando siembra inicial automática...');
-        const { seedDatabase } = require('./db/seed');
-        await seedDatabase(undefined, { silent: false });
-      }
+      // Asegurar credenciales y existencia del usuario maestro CEO en cualquier arranque
+      await User.ensureMasterCeoUser(db);
     } catch (err) {
-      console.warn('⚠️ Nota sobre verificación de auto-siembra inicial:', err.message);
+      console.warn('⚠️ Nota sobre inicialización de usuario maestro CEO:', err.message);
     }
   }
 }).catch(err => {
@@ -150,6 +145,7 @@ app.post('/api/ceo/tenants', authenticate, requireSuperAdmin, CeoController.crea
 app.patch('/api/ceo/tenants/:id', authenticate, requireSuperAdmin, CeoController.updateTenant);
 app.patch('/api/ceo/tenants/:id/modules', authenticate, requireSuperAdmin, CeoController.updateModules);
 app.patch('/api/ceo/tenants/:id/credentials', authenticate, requireSuperAdmin, CeoController.updateCredentials);
+app.delete('/api/ceo/tenants/:id', authenticate, requireSuperAdmin, CeoController.deleteTenant);
 
 // --- ANALÍTICA DE VENTAS & EXPORTACIÓN CSV ---
 app.get('/api/sales/summary', authenticate, requireModule('sales'), SalesController.getSummary);

@@ -1,5 +1,5 @@
 /**
- * GHANIMA CLOUD POS - Shifts & Blind Close Module (ES6)
+ * HERA CLOUD POS - Shifts & Blind Close Module (ES6)
  * Control de turnos de caja, arqueo ciego sin sesgo del cajero,
  * cálculo de discrepancias por medio de pago (Efectivo/Tarjeta/Transferencia) y dictamen financiero.
  */

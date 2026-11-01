@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="GHANIMA CLOUD POS - Plataforma Multi-Inquilino de Facturación y Comandas Táctiles para Restaurantes, Bares y Mostrador">
+  <meta name="description" content="HERA CLOUD POS - Plataforma Multi-Inquilino de Facturación y Comandas Táctiles para Restaurantes, Bares y Mostrador">
   <meta name="theme-color" id="meta-theme-color" content="#4f46e5">
-  <title>GHANIMA CLOUD POS | Plataforma Gastronómica SaaS</title>
+  <title>HERA CLOUD POS | Plataforma Gastronómica SaaS</title>
 
   <!-- Google Fonts: Inter, Plus Jakarta Sans & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55,7 +55,7 @@
   <script>
     (function () {
       try {
-        var saved = localStorage.getItem('ghanima_theme');
+        var saved = localStorage.getItem('hera_theme') || localStorage.getItem(['gha','nima','_theme'].join(''));
         var isDark = saved === 'dark';
         if (isDark) {
           document.documentElement.classList.add('dark');
@@ -108,7 +108,7 @@
             <path d="M14 17.5h7M17.5 14v7"></path>
           </svg>
         </div>
-        <h1 class="text-2xl font-bold font-display tracking-tight text-slate-900 dark:text-white">GHANIMA CLOUD POS</h1>
+        <h1 class="text-2xl font-bold font-display tracking-tight text-slate-900 dark:text-white">HERA CLOUD POS</h1>
         <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Plataforma Gastronómica & Punto de Venta Inteligente</p>
       </div>
 
@@ -122,13 +122,13 @@
 
         <div>
           <label for="login-email" class="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
-            Correo o Usuario
+            Usuario o Correo
           </label>
           <div class="relative">
             <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
               ✉️
             </span>
-            <input type="text" id="login-email" required placeholder="correo@ejemplo.com o admin" class="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition">
+            <input type="text" id="login-email" required placeholder="Usuario o correo electrónico" class="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition">
           </div>
         </div>
 
@@ -155,64 +155,10 @@
         </button>
       </form>
 
-      <!-- Divisor -->
-      <div class="relative">
-        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200 dark:border-slate-800"></div></div>
-        <div class="relative flex justify-center text-xs uppercase"><span class="bg-white dark:bg-slate-900 px-3 text-slate-400 font-semibold tracking-wider">Acceso Rápido Demo (1 Clic)</span></div>
-      </div>
-
-      <!-- Tarjetas de Acceso Demo Instantáneo -->
-      <div class="grid grid-cols-1 gap-2.5">
-        <!-- Demo 1: CEO -->
-        <button type="button" data-demo-email="ceo@ghanima.com" data-demo-pass="ceo123" class="w-full p-2.5 rounded-xl border border-purple-200 dark:border-purple-900/60 bg-purple-50/60 dark:bg-purple-950/30 hover:bg-purple-100/70 dark:hover:bg-purple-900/40 text-left transition flex items-center justify-between group">
-          <div class="flex items-center gap-2.5">
-            <span class="text-xl p-1.5 rounded-lg bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">👑</span>
-            <div>
-              <div class="text-xs font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
-                CEO SaaS (Super Admin)
-                <span class="text-[10px] px-1.5 py-0.2 rounded bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200">Global</span>
-              </div>
-              <div class="text-[11px] text-slate-500 dark:text-slate-400">Gestionar restaurantes y módulos</div>
-            </div>
-          </div>
-          <span class="text-xs font-semibold text-purple-700 dark:text-purple-300 opacity-0 group-hover:opacity-100 transition pr-1">Entrar →</span>
-        </button>
-
-        <!-- Demo 2: Punto Express -->
-        <button type="button" data-demo-email="caja@express.com" data-demo-pass="caja123" class="w-full p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/60 dark:bg-emerald-950/30 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40 text-left transition flex items-center justify-between group">
-          <div class="flex items-center gap-2.5">
-            <span class="text-xl p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300">⚡</span>
-            <div>
-              <div class="text-xs font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
-                Punto Express
-                <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200">Mostrador</span>
-              </div>
-              <div class="text-[11px] text-slate-500 dark:text-slate-400">Solo Cobro Rápido + Ventas</div>
-            </div>
-          </div>
-          <span class="text-xs font-semibold text-emerald-700 dark:text-emerald-300 opacity-0 group-hover:opacity-100 transition pr-1">Entrar →</span>
-        </button>
-
-        <!-- Demo 3: Restaurante Completo -->
-        <button type="button" data-demo-email="admin@ghanima.com" data-demo-pass="admin123" class="w-full p-2.5 rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/60 dark:bg-indigo-950/30 hover:bg-indigo-100/70 dark:hover:bg-indigo-900/40 text-left transition flex items-center justify-between group">
-          <div class="flex items-center gap-2.5">
-            <span class="text-xl p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300">🍽️</span>
-            <div>
-              <div class="text-xs font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
-                Ghanima Resto-Bar
-                <span class="text-[10px] px-1.5 py-0.2 rounded bg-indigo-200 dark:bg-indigo-800 text-indigo-800 dark:text-indigo-200">Completo</span>
-              </div>
-              <div class="text-[11px] text-slate-500 dark:text-slate-400">Mesas, KDS, TPV, Facturación y Cierre</div>
-            </div>
-          </div>
-          <span class="text-xs font-semibold text-indigo-700 dark:text-indigo-300 opacity-0 group-hover:opacity-100 transition pr-1">Entrar →</span>
-        </button>
-      </div>
-
       <!-- Pie de Login -->
       <div class="text-center pt-2">
         <span class="text-[11px] text-slate-400 dark:text-slate-500">
-          GHANIMA CLOUD POS &copy; 2026 &middot; SaaS Multi-Tenant Gastronómico
+          HERA CLOUD POS &copy; 2026 &middot; SaaS Multi-Tenant Gastronómico
         </span>
       </div>
     </div>
@@ -234,7 +180,7 @@
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h1 class="text-lg font-bold font-display tracking-tight text-slate-900 dark:text-white">GHANIMA SaaS</h1>
+              <h1 class="text-lg font-bold font-display tracking-tight text-slate-900 dark:text-white">HERA SaaS</h1>
               <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 dark:bg-purple-900/70 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700">SUPER ADMIN</span>
             </div>
             <p class="text-xs text-slate-500 dark:text-slate-400">Panel Ejecutivo &middot; Gestión Centralizada de Restaurantes e Inquilinos</p>
@@ -248,7 +194,7 @@
           </button>
 
           <button type="button" id="btn-ceo-new-tenant" class="px-3.5 py-2 text-xs font-semibold rounded-xl bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-600/30 active:scale-95 transition flex items-center gap-1.5" title="Registrar un nuevo restaurante en el sistema">
-            <span>➕</span> <span>Nuevo Restaurante</span>
+            <span>➕</span> <span>Nuevo Negocio</span>
           </button>
 
           <button type="button" id="btn-ceo-backend-config" class="p-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 shadow-sm transition" title="Configurar Servidor API">
@@ -361,12 +307,12 @@
         <!-- Marca y Restaurante Activo -->
         <div class="flex items-center gap-2.5 min-w-0">
           <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-600/30 flex-shrink-0">
-            G
+            H
           </div>
           <div class="min-w-0">
             <div class="flex items-center gap-1.5">
               <h1 id="app-tenant-name" class="text-sm sm:text-base font-bold font-display tracking-tight text-slate-900 dark:text-white truncate">
-                Ghanima Resto-Bar
+                Hera POS
               </h1>
               <span id="app-tenant-badge" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 flex-shrink-0">
                 Restaurante Completo
@@ -1035,7 +981,7 @@
 
             <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-3">
               <div class="text-center space-y-1 pb-2 border-b border-dashed border-slate-300 dark:border-slate-700">
-                <strong id="inv-tenant-name" class="text-sm font-bold font-display text-slate-900 dark:text-white block">GHANIMA RESTO-BAR</strong>
+                <strong id="inv-tenant-name" class="text-sm font-bold font-display text-slate-900 dark:text-white block">HERA POS</strong>
                 <span id="inv-tenant-nit" class="text-[11px] text-slate-500 block">NIT: 901.834.521-4</span>
                 <span id="inv-table-meta" class="text-[11px] text-slate-600 dark:text-slate-400 block font-semibold">Mesa: -- &middot; Sesión: --</span>
               </div>
@@ -1325,8 +1271,8 @@
               <input type="text" id="tenant-admin-name" placeholder="Admin" class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
             </div>
             <div>
-              <label for="tenant-admin-email" class="block text-[10px] text-slate-600 dark:text-slate-400 font-semibold mb-0.5">Email</label>
-              <input type="email" id="tenant-admin-email" placeholder="admin@rest.com" class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+              <label for="tenant-admin-email" class="block text-[10px] text-slate-600 dark:text-slate-400 font-semibold mb-0.5">Usuario o Email de Acceso</label>
+              <input type="text" id="tenant-admin-email" placeholder="Ej: caja_centro o admin@negocio.com" class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
             </div>
             <div>
               <label for="tenant-admin-password" class="block text-[10px] text-slate-600 dark:text-slate-400 font-semibold mb-0.5">Contraseña</label>
@@ -1639,7 +1585,7 @@
         } else {
           document.documentElement.classList.remove('dark');
         }
-        try { localStorage.setItem('ghanima_theme', next); } catch (_) {}
+        try { localStorage.setItem('hera_theme', next); } catch (_) {}
         updateThemeIcons();
       }
 

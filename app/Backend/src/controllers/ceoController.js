@@ -108,8 +108,8 @@ class CeoController {
           role: 'RESTAURANT_ADMIN'
         }, txDb);
 
-        // Sembrar productos de ejemplo si es venta de mostrador o se solicitó explícitamente
-        if (includeSampleProducts || businessType === 'EXPRESS_COUNTER') {
+        // Sembrar productos de ejemplo únicamente si se solicitó explícitamente
+        if (includeSampleProducts === true) {
           const sampleProducts = [
             {
               id: `${tenantId}-prod-1`,
@@ -235,6 +235,74 @@ class CeoController {
       return res.json({ user: admin.toPublic() });
     } catch (err) {
       return res.status(400).json({ error: 'Error al actualizar credenciales: ' + err.message });
+    }
+  }
+
+  /**
+   * Elimina un restaurante (tenant) y todos sus registros asociados bajo transacción ACID.
+   */
+  static async deleteTenant(req, res) {
+    try {
+      const db = req.db || getDatabase();
+      const { id } = req.params;
+
+      const tenant = await Tenant.findById(id, db);
+      if (!tenant) {
+        return res.status(404).json({ error: 'Restaurante no encontrado.' });
+      }
+
+      await withTransaction(db, async (txDb) => {
+        // 1. Limpiar sesiones activas en mesas
+        await txDb.query('UPDATE tables SET currentSessionId = NULL WHERE tenantId = $1', [id]);
+
+        // 2. Facturación e ítems de factura
+        await txDb.query(`
+          DELETE FROM invoice_items 
+          WHERE tenantId = $1 
+             OR invoiceId IN (SELECT id FROM invoices WHERE tenantId = $1)
+        `, [id]);
+        await txDb.query(`
+          DELETE FROM invoice_payments 
+          WHERE invoiceId IN (SELECT id FROM invoices WHERE tenantId = $1)
+        `, [id]);
+        await txDb.query('DELETE FROM invoices WHERE tenantId = $1', [id]);
+
+        // 3. Órdenes y detalles
+        await txDb.query(`
+          DELETE FROM order_items 
+          WHERE orderId IN (SELECT id FROM orders WHERE tenantId = $1)
+        `, [id]);
+        await txDb.query('DELETE FROM orders WHERE tenantId = $1', [id]);
+
+        // 4. Recetas, mermas e inventario
+        await txDb.query(`
+          DELETE FROM product_recipes 
+          WHERE productId IN (SELECT id FROM products WHERE tenantId = $1)
+             OR ingredientId IN (SELECT id FROM ingredients WHERE tenantId = $1)
+        `, [id]);
+        await txDb.query('DELETE FROM wastes WHERE tenantId = $1', [id]);
+        await txDb.query('DELETE FROM products WHERE tenantId = $1', [id]);
+        await txDb.query('DELETE FROM ingredients WHERE tenantId = $1', [id]);
+
+        // 5. Sesiones y mesas
+        await txDb.query('DELETE FROM sessions WHERE tenantId = $1', [id]);
+        await txDb.query('DELETE FROM tables WHERE tenantId = $1', [id]);
+
+        // 6. Turnos y auditorías
+        await txDb.query('DELETE FROM shift_audits WHERE tenantId = $1', [id]);
+
+        // 7. Usuarios asociados
+        await txDb.query('DELETE FROM users WHERE tenantId = $1', [id]);
+
+        // 8. Tenant principal
+        await txDb.query('DELETE FROM tenants WHERE id = $1', [id]);
+      });
+
+      eventService.broadcast(eventService.EVENT_TYPES.TENANT_UPDATED, { id, deleted: true });
+
+      return res.json({ success: true, message: `Restaurante '${tenant.name}' eliminado exitosamente.` });
+    } catch (err) {
+      return res.status(500).json({ error: 'Error al eliminar tenant: ' + err.message });
     }
   }
 }

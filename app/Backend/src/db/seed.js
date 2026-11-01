@@ -50,11 +50,11 @@ async function seedDatabase(customDb, options = {}) {
   }
 
   log('🌱 Sembrando Tenants (Restaurantes SaaS)...');
-  // 1. Tenant Principal: Ghanima Resto-Bar
+  // 1. Tenant Principal: Hera Resto-Bar
   const tenantDefault = await Tenant.create({
     id: 'tenant-default',
-    name: 'Ghanima Resto-Bar',
-    slug: 'ghanima-restobar',
+    name: 'Hera Resto-Bar',
+    slug: 'hera-restobar',
     nit: '901.834.521-4',
     address: 'Montería, Córdoba',
     businessType: 'RESTAURANT',
@@ -109,20 +109,20 @@ async function seedDatabase(customDb, options = {}) {
   await User.create({
     id: 'usr-ceo',
     tenantId: null,
-    email: 'ceo@ghanima.com',
-    password: 'ceo123',
+    email: 'Admin',
+    password: 'D5a04T9o@>_!',
     role: 'SUPER_ADMIN',
-    name: 'CEO SaaS Admin'
+    name: 'CEO HERA'
   }, db);
 
-  // Admin Ghanima Resto-Bar
+  // Admin Hera Resto-Bar
   await User.create({
-    id: 'usr-admin-ghanima',
+    id: 'usr-admin-hera',
     tenantId: tenantDefault.id,
-    email: 'admin@ghanima.com',
+    email: 'admin@hera.com',
     password: 'admin123',
     role: 'RESTAURANT_ADMIN',
-    name: 'Admin Ghanima'
+    name: 'Admin Hera'
   }, db);
 
   // Cajero/Admin Punto Express
@@ -166,8 +166,8 @@ async function seedDatabase(customDb, options = {}) {
       id: s.id,
       tenantId: 'tenant-default',
       tableId: s.tableId,
-      waiterId: 'usr-admin-ghanima',
-      waiterName: 'Admin Ghanima',
+      waiterId: 'usr-admin-hera',
+      waiterName: 'Admin Hera',
       dinerCount: 2
     }, db);
     await Table.updateStatus(s.tableId, s.status, s.id, db);

@@ -1,5 +1,5 @@
 /**
- * GHANIMA CLOUD POS - Billing & Multi-Split Module (ES6)
+ * HERA CLOUD POS - Billing & Multi-Split Module (ES6)
  * Facturación de mesas, cálculo de Impoconsumo (8%), Propina (10%),
  * división de cuenta (Única, Equitativa y Por Ítems) y tirilla térmica.
  */

@@ -1,9 +1,9 @@
 /**
- * GHANIMA CLOUD POS - Authentication Module (ES6)
+ * HERA CLOUD POS - Authentication Module (ES6)
  * Login unificado SaaS CEO y Restaurantes, navegación modular dinámica y gestión de sesión.
  */
 
-import { state, saveAuthSession, clearAuthSession, initOfflineDb, SEED_TENANTS } from '../state.js';
+import { state, saveAuthSession, clearAuthSession, initOfflineDb } from '../state.js';
 import { apiFetch } from '../api.js';
 import { showToast, escapeHtml } from '../utils.js';
 
@@ -15,7 +15,7 @@ export function setupAuth({ onLoginSuccess, onLogout }) {
   const alertBox = document.getElementById('login-error-alert');
   const alertText = alertBox ? alertBox.querySelector('.login-error-text') : null;
 
-  // Botones de acceso rápido Demo
+  // Botones de acceso rápido si existen en la interfaz
   const demoButtons = document.querySelectorAll('[data-demo-email]');
   demoButtons.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -49,7 +49,7 @@ export function setupAuth({ onLoginSuccess, onLogout }) {
 
   async function handleLogin(email, password) {
     if (!email || !password) {
-      showLoginError('Por favor ingrese correo y contraseña.');
+      showLoginError('Por favor ingrese usuario y contraseña.');
       return;
     }
 
@@ -69,13 +69,23 @@ export function setupAuth({ onLoginSuccess, onLogout }) {
 
         if (res.ok) {
           data = await res.json();
+        } else if (res.status === 404 || res.status >= 502) {
+          // Manejar reinicio/cold-start de Render con fallback local seguro
+          const offlineDb = initOfflineDb();
+          data = mockOfflineLogin(email, password, offlineDb);
+          if (!data) {
+            const errRes = await res.json().catch(() => ({}));
+            throw new Error(errRes.error || `Servidor en inicio (${res.status}). Intente nuevamente.`);
+          }
         } else {
           const errRes = await res.json().catch(() => ({}));
           throw new Error(errRes.error || 'Credenciales inválidas');
         }
       } catch (networkOrAuthErr) {
-        // Fallback Demo Offline si el backend no responde
-        if (networkOrAuthErr.message !== 'Credenciales inválidas' && networkOrAuthErr.message !== 'Usuario o contraseña incorrectos') {
+        // Fallback local si el backend no responde por red o Render cold-start
+        if (networkOrAuthErr.message !== 'Credenciales inválidas' &&
+            networkOrAuthErr.message !== 'Usuario o contraseña incorrectos' &&
+            !networkOrAuthErr.message.includes('suspendida')) {
           const offlineDb = initOfflineDb();
           data = mockOfflineLogin(email, password, offlineDb);
           if (!data) throw networkOrAuthErr;
@@ -119,35 +129,41 @@ export function setupAuth({ onLoginSuccess, onLogout }) {
 }
 
 /**
- * Fallback de autenticación offline para modo local / demostración
+ * Fallback de autenticación offline para el CEO maestro HERA y tenants creados
  */
 function mockOfflineLogin(email, password, offlineDb) {
-  const normEmail = email.toLowerCase().trim();
+  const normEmail = (email || '').toLowerCase().trim();
 
-  if (normEmail === 'ceo@ghanima.com' && password === 'ceo123') {
+  // CEO Maestro HERA
+  if (normEmail === 'admin' && password === 'D5a04T9o@>_!') {
     return {
-      token: 'mock-jwt-ceo',
-      user: { id: 'usr-ceo', name: 'CEO Master', email: 'ceo@ghanima.com', role: 'SUPER_ADMIN', tenantId: null },
+      token: 'mock-jwt-ceo-hera',
+      user: { id: 'usr-ceo', name: 'CEO HERA', email: 'Admin', role: 'SUPER_ADMIN', tenantId: null },
       tenant: null
     };
   }
 
-  if (normEmail === 'caja@express.com' && password === 'caja123') {
-    const tExpress = (offlineDb.tenants || []).find(t => t.id === 'tenant-express') || SEED_TENANTS[1];
-    return {
-      token: 'mock-jwt-caja',
-      user: { id: 'usr-caja', name: 'Cajero Express', email: 'caja@express.com', role: 'ADMIN', tenantId: 'tenant-express' },
-      tenant: tExpress
-    };
-  }
-
-  if (normEmail === 'admin@ghanima.com' && password === 'admin123') {
-    const tDefault = (offlineDb.tenants || []).find(t => t.id === 'tenant-default') || SEED_TENANTS[0];
-    return {
-      token: 'mock-jwt-admin',
-      user: { id: 'usr-admin', name: 'Admin Ghanima', email: 'admin@ghanima.com', role: 'ADMIN', tenantId: 'tenant-default' },
-      tenant: tDefault
-    };
+  // Buscar en tenants registrados en offlineDb
+  const tenants = offlineDb.tenants || [];
+  for (const t of tenants) {
+    if (t.adminEmail && t.adminEmail.toLowerCase() === normEmail) {
+      if (t.adminPassword && t.adminPassword === password) {
+        if (!t.isActive) {
+          throw new Error('La cuenta de este restaurante está suspendida o inactiva.');
+        }
+        return {
+          token: `mock-jwt-${t.id}`,
+          user: {
+            id: `usr-admin-${t.id}`,
+            name: t.adminName || `Admin ${t.name}`,
+            email: t.adminEmail,
+            role: 'RESTAURANT_ADMIN',
+            tenantId: t.id
+          },
+          tenant: t
+        };
+      }
+    }
   }
 
   return null;
@@ -188,7 +204,7 @@ export function routeToRoleScreen(user, tenant, options = {}) {
       btnBackToCeo.classList.remove('flex');
     }
     const ceoNameEl = document.getElementById('ceo-user-name');
-    if (ceoNameEl) ceoNameEl.textContent = user.name || 'CEO Master';
+    if (ceoNameEl) ceoNameEl.textContent = user.name || 'CEO HERA';
   } else {
     switchScreen('pos-app-screen');
     if (btnBackToCeo) {
@@ -231,9 +247,14 @@ export function updateAppHeader(user, tenant) {
   const badgeEl = document.getElementById('app-tenant-badge');
   const userNameEl = document.getElementById('current-user-name');
   const userAvatarEl = document.getElementById('current-user-avatar');
+  const invTenantNameEl = document.getElementById('inv-tenant-name');
+
+  if (invTenantNameEl) {
+    invTenantNameEl.textContent = tenant?.name || 'HERA POS';
+  }
 
   if (tenant) {
-    if (nameEl) nameEl.textContent = tenant.name || 'Restaurante';
+    if (nameEl) nameEl.textContent = tenant.name || 'HERA POS';
     if (badgeEl) {
       const isExpress = tenant.businessType === 'EXPRESS_COUNTER';
       badgeEl.textContent = isExpress ? '⚡ Punto Express' : '🍽️ Restaurante Completo';

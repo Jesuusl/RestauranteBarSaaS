@@ -1,5 +1,5 @@
 /**
- * GHANIMA CLOUD POS - Main Application Entry Point (ES6)
+ * HERA CLOUD POS - Main Application Entry Point (ES6)
  * Inicialización orquestada, navegación SPA reactiva, reloj en vivo,
  * sincronización SSE y orquestación de módulos independientes.
  */

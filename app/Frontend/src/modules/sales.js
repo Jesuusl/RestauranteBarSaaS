@@ -1,5 +1,5 @@
 /**
- * GHANIMA CLOUD POS - Sales Analytics & CSV Export Module (ES6)
+ * HERA CLOUD POS - Sales Analytics & CSV Export Module (ES6)
  * Reportes de facturación en tiempo real, KPIs ejecutivos, producto más vendido,
  * ranking con barra de progreso nativa (0 inline styles) y exportación compatible con Excel (BOM UTF-8).
  */
@@ -313,7 +313,7 @@ async function handleExportCsv() {
     const res = await apiFetch(`/api/sales/export.csv?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
     if (res.ok) {
       const csvText = await res.text();
-      const filename = `ventas-${(state.currentTenant?.name || 'ghanima').replace(/\s+/g, '_')}-${from}_al_${to}.csv`;
+      const filename = `ventas-${(state.currentTenant?.name || 'hera').replace(/\s+/g, '_')}-${from}_al_${to}.csv`;
       downloadCsvBlob(csvText, filename);
       showToast('Archivo CSV descargado exitosamente', 'success');
       return;

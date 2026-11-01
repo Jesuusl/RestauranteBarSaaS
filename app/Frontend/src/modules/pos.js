@@ -1,5 +1,5 @@
 /**
- * GHANIMA CLOUD POS - POS Table Order Taking Module (ES6)
+ * HERA CLOUD POS - POS Table Order Taking Module (ES6)
  * Toma de pedidos para mesas activas, selector de modificadores y envío ACID a KDS.
  */
 
@@ -342,8 +342,8 @@ async function handleSubmitOrder(onOrderSubmitted) {
     return;
   }
 
-  const waiterId = state.currentUser?.id || 'usr-admin-ghanima';
-  const waiterName = state.currentUser?.name || 'Admin Ghanima';
+  const waiterId = state.currentUser?.id || 'usr-admin-hera';
+  const waiterName = state.currentUser?.name || 'Admin Hera';
   const table = (state.tables || []).find(t => t.id === state.selectedTableId);
 
   let sessionId = table?.currentSessionId;

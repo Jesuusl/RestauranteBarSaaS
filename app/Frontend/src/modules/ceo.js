@@ -1,5 +1,5 @@
 /**
- * GHANIMA CLOUD POS - CEO Super Admin Dashboard (ES6)
+ * HERA CLOUD POS - CEO Super Admin Dashboard (ES6)
  * Gestión centralizada de inquilinos/restaurantes, switches de 8 módulos en tiempo real,
  * reglas tributarias (Impoconsumo/Propina), presets rápidos y KPIs globales.
  */
@@ -19,6 +19,7 @@ export function setupCeoDashboard({ onImpersonateTenant } = {}) {
   const searchInput = document.getElementById('ceo-search-input');
   const filterType = document.getElementById('ceo-filter-type');
   const formTenant = document.getElementById('form-tenant-manage');
+  const formTypeSelect = document.getElementById('tenant-form-type');
 
   if (btnRefresh) {
     btnRefresh.addEventListener('click', () => loadCeoData());
@@ -34,6 +35,15 @@ export function setupCeoDashboard({ onImpersonateTenant } = {}) {
 
   if (filterType) {
     filterType.addEventListener('change', () => filterAndRenderTenants());
+  }
+
+  if (formTypeSelect) {
+    formTypeSelect.addEventListener('change', () => {
+      const idInput = document.getElementById('tenant-form-id');
+      if (!idInput || !idInput.value) {
+        applyFormTypeDefaults(formTypeSelect.value);
+      }
+    });
   }
 
   if (formTenant) {
@@ -168,16 +178,23 @@ function renderTenantsGrid(tenants) {
             <div class="flex items-center gap-2 flex-wrap">
               <h3 class="text-base font-bold font-display text-slate-900 dark:text-white truncate">${escapeHtml(t.name)}</h3>
               <span class="px-2 py-0.5 text-[10px] font-bold rounded-full ${isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400'}">
-                ${isActive ? 'Activo' : 'Inactivo'}
+                ${isActive ? 'Activo' : 'Suspendido'}
               </span>
             </div>
             <p class="text-xs text-slate-500 font-mono mt-0.5">${escapeHtml(t.nit || 'Sin NIT')}</p>
             <p class="text-xs text-slate-400 truncate mt-0.5">${escapeHtml(t.address || 'Sin dirección')}</p>
+            <p class="text-xs text-purple-600 dark:text-purple-400 font-mono mt-0.5 truncate">👤 ${escapeHtml(t.adminEmail || 'Sin usuario asignado')}</p>
           </div>
 
           <div class="flex items-center gap-1.5 flex-shrink-0">
+            <button type="button" class="btn-toggle-active-tenant p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs" data-tenant-id="${t.id}" title="${isActive ? 'Suspender Restaurante' : 'Activar Restaurante'}">
+              ${isActive ? '⏸️' : '▶️'}
+            </button>
             <button type="button" class="btn-edit-tenant p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs" data-tenant-id="${t.id}" title="Editar Restaurante">
               ✏️
+            </button>
+            <button type="button" class="btn-delete-tenant p-1.5 rounded-xl border border-red-200 dark:border-red-900/60 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400 text-xs" data-tenant-id="${t.id}" title="Eliminar Restaurante">
+              🗑️
             </button>
             <button type="button" class="btn-impersonate p-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 hover:bg-purple-100 text-xs font-bold" data-tenant-id="${t.id}" title="Acceder como Restaurante">
               Entrar ➔
@@ -239,6 +256,26 @@ function renderTenantsGrid(tenants) {
       const taxKey = chk.dataset.taxKey;
       const isEnabled = chk.checked;
       await updateTenantTaxState(tenantId, taxKey, isEnabled);
+    });
+  });
+
+  // Vincular botón activar / suspender
+  grid.querySelectorAll('.btn-toggle-active-tenant').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const tenantId = btn.dataset.tenantId;
+      const t = cachedTenants.find(x => x.id === tenantId);
+      if (t) {
+        const nextState = !(t.isActive !== false);
+        await updateTenantActiveState(tenantId, nextState);
+      }
+    });
+  });
+
+  // Vincular botón eliminar
+  grid.querySelectorAll('.btn-delete-tenant').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const tenantId = btn.dataset.tenantId;
+      await deleteTenant(tenantId);
     });
   });
 
@@ -388,6 +425,97 @@ async function applyPreset(tenantId, type) {
   showToast(`Preset '${isExpress ? 'Solo Cobro' : 'Restaurante'}' aplicado`, 'success');
 }
 
+async function updateTenantActiveState(tenantId, isActive) {
+  const tenant = cachedTenants.find(t => t.id === tenantId);
+  if (!tenant) return;
+
+  try {
+    const res = await apiFetch(`/api/ceo/tenants/${tenantId}`, {
+      method: 'PATCH',
+      body: { isActive }
+    });
+
+    if (res.ok) {
+      tenant.isActive = isActive;
+      showToast(`Restaurante ${isActive ? 'activado' : 'suspendido'} exitosamente`, 'success');
+      filterAndRenderTenants();
+      return;
+    }
+  } catch (_) {}
+
+  // Fallback local
+  tenant.isActive = isActive;
+  const db = initOfflineDb();
+  const dbT = (db.tenants || []).find(t => t.id === tenantId);
+  if (dbT) dbT.isActive = isActive;
+  saveOfflineDb(db);
+  filterAndRenderTenants();
+  showToast(`Estado guardado localmente (${isActive ? 'Activo' : 'Suspendido'})`, 'info');
+}
+
+async function deleteTenant(tenantId) {
+  const tenant = cachedTenants.find(t => t.id === tenantId);
+  if (!tenant) return;
+
+  const confirmed = window.confirm(`¿Estás seguro de eliminar permanentemente el restaurante "${tenant.name}" y toda su información asociada (mesas, catálogo, sesiones y facturas)? Esta acción no se puede deshacer.`);
+  if (!confirmed) return;
+
+  try {
+    const res = await apiFetch(`/api/ceo/tenants/${tenantId}`, {
+      method: 'DELETE'
+    });
+
+    if (res.ok) {
+      showToast(`Restaurante "${tenant.name}" eliminado correctamente`, 'success');
+      await loadCeoData();
+      return;
+    } else {
+      const err = await res.json().catch(() => ({}));
+      showToast(err.error || 'Error al eliminar restaurante', 'alert');
+      return;
+    }
+  } catch (_) {}
+
+  // Fallback local
+  const db = initOfflineDb();
+  db.tenants = (db.tenants || []).filter(t => t.id !== tenantId);
+  saveOfflineDb(db);
+  showToast(`Restaurante eliminado localmente`, 'info');
+  await loadCeoData();
+}
+
+function applyFormTypeDefaults(type) {
+  const isExpress = type === 'EXPRESS_COUNTER';
+  const taxImp = document.getElementById('tenant-tax-impoconsumo');
+  const taxTip = document.getElementById('tenant-tax-tip');
+
+  if (isExpress) {
+    if (taxImp) taxImp.checked = false;
+    if (taxTip) taxTip.checked = false;
+  } else {
+    if (taxImp) taxImp.checked = true;
+    if (taxTip) taxTip.checked = true;
+  }
+
+  const moduleMap = {
+    express_pos: true,
+    sales: true,
+    catalog: true,
+    tables: !isExpress,
+    pos: !isExpress,
+    kds: !isExpress,
+    billing: !isExpress,
+    shifts: !isExpress
+  };
+
+  document.querySelectorAll('[data-tenant-mod]').forEach(chk => {
+    const key = chk.dataset.tenantMod;
+    if (key in moduleMap) {
+      chk.checked = moduleMap[key];
+    }
+  });
+}
+
 function openCreateTenantModal() {
   const form = document.getElementById('form-tenant-manage');
   if (form) form.reset();
@@ -401,15 +529,9 @@ function openCreateTenantModal() {
   if (adminEmail) adminEmail.value = '';
   if (adminPassword) adminPassword.value = '';
 
-  const taxImp = document.getElementById('tenant-tax-impoconsumo');
-  const taxTip = document.getElementById('tenant-tax-tip');
-  if (taxImp) taxImp.checked = true;
-  if (taxTip) taxTip.checked = true;
-
-  // Por defecto activar todos los módulos
-  document.querySelectorAll('[data-tenant-mod]').forEach(chk => {
-    chk.checked = true;
-  });
+  const typeSelect = document.getElementById('tenant-form-type');
+  const selectedType = typeSelect?.value || 'RESTAURANT';
+  applyFormTypeDefaults(selectedType);
 
   openModal('modal-tenant-form');
 }

@@ -1,11 +1,13 @@
 /**
- * GHANIMA CLOUD POS - API Client & SSE Event Stream (ES6)
+ * HERA CLOUD POS - API Client & SSE Event Stream (ES6)
  * Gestión de URL Base, peticiones seguras con JWT + TenantId,
  * eventos en tiempo real (SSE) y configuración de servidor API.
  */
 
 import { state, setState } from './state.js';
 import { showToast, openModal, closeModal } from './utils.js';
+
+export const DEFAULT_PROD_API_URL = 'https://restaurante-bar-backend.onrender.com';
 
 export function getApiBase() {
   const custom = localStorage.getItem('comanda_api_url');
@@ -17,7 +19,7 @@ export function getApiBase() {
   }
   return (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:3001'
-    : window.location.origin;
+    : DEFAULT_PROD_API_URL;
 }
 
 export let API_BASE = getApiBase();

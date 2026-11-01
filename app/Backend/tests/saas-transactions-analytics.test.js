@@ -107,23 +107,23 @@ describe('SUITE SAAS MULTI-TENANT, TRANSACCIONES ACID, FEATURE FLAGS Y ANALÍTIC
       const res = await fetch(`${baseUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'ceo@ghanima.com', password: 'ceo123' })
+        body: JSON.stringify({ email: 'Admin', password: 'D5a04T9o@>_!' })
       });
 
       assert.equal(res.status, 200);
       const data = await res.json();
       assert.ok(data.token, 'Debe devolver un JWT');
       assert.equal(data.user.role, 'SUPER_ADMIN');
-      assert.equal(data.user.email, 'ceo@ghanima.com');
+      assert.equal(data.user.email.toLowerCase(), 'admin');
       assert.equal(data.user.passwordHash, undefined, 'Nunca debe exponer passwordHash');
       assert.equal(data.tenant, null, 'CEO no está atado a un único tenant');
     });
 
-    test('Administrador de Restaurante (Ghanima) inicia sesión con su tenant asignado', async () => {
+    test('Administrador de Restaurante (Hera) inicia sesión con su tenant asignado', async () => {
       const res = await fetch(`${baseUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'admin@ghanima.com', password: 'admin123' })
+        body: JSON.stringify({ email: 'admin@hera.com', password: 'admin123' })
       });
 
       assert.equal(res.status, 200);
@@ -131,7 +131,7 @@ describe('SUITE SAAS MULTI-TENANT, TRANSACCIONES ACID, FEATURE FLAGS Y ANALÍTIC
       assert.ok(data.token);
       assert.equal(data.user.role, 'RESTAURANT_ADMIN');
       assert.equal(data.tenant.id, 'tenant-default');
-      assert.equal(data.tenant.name, 'Ghanima Resto-Bar');
+      assert.equal(data.tenant.name, 'Hera Resto-Bar');
     });
 
     test('Cajero de Mostrador (Punto Express) inicia sesión con tenant express', async () => {
@@ -153,7 +153,7 @@ describe('SUITE SAAS MULTI-TENANT, TRANSACCIONES ACID, FEATURE FLAGS Y ANALÍTIC
       const res = await fetch(`${baseUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'admin@ghanima.com', password: 'password-equivocada' })
+        body: JSON.stringify({ email: 'admin@hera.com', password: 'password-equivocada' })
       });
 
       assert.equal(res.status, 401);
@@ -191,7 +191,7 @@ describe('SUITE SAAS MULTI-TENANT, TRANSACCIONES ACID, FEATURE FLAGS Y ANALÍTIC
       const res = await fetch(`${baseUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'ceo@ghanima.com', password: 'ceo123' })
+        body: JSON.stringify({ email: 'Admin', password: 'D5a04T9o@>_!' })
       });
       const data = await res.json();
       ceoToken = data.token;
@@ -309,6 +309,45 @@ describe('SUITE SAAS MULTI-TENANT, TRANSACCIONES ACID, FEATURE FLAGS Y ANALÍTIC
       });
       assert.equal(loginCheck.status, 200);
     });
+
+    test('CEO elimina un restaurante con borrado en cascada ACID vía DELETE /api/ceo/tenants/:id', async () => {
+      // 1. Crear tenant de prueba con productos y usuario
+      const createRes = await fetch(`${baseUrl}/api/ceo/tenants`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${ceoToken}`
+        },
+        body: JSON.stringify({
+          id: 'tenant-to-delete',
+          name: 'Restaurante Efímero',
+          slug: 'restaurante-efimero',
+          adminEmail: 'efimero@test.com',
+          adminPassword: 'password123',
+          includeSampleProducts: true
+        })
+      });
+      assert.equal(createRes.status, 201);
+
+      // Verificar que existe en BD
+      const tenantBefore = await Tenant.findById('tenant-to-delete', db);
+      assert.ok(tenantBefore);
+
+      // 2. Ejecutar DELETE
+      const deleteRes = await fetch(`${baseUrl}/api/ceo/tenants/tenant-to-delete`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${ceoToken}` }
+      });
+      assert.equal(deleteRes.status, 200);
+      const deleteData = await deleteRes.json();
+      assert.equal(deleteData.success, true);
+
+      // 3. Verificar que ya no existe en BD
+      const tenantAfter = await Tenant.findById('tenant-to-delete', db);
+      assert.equal(tenantAfter, null);
+      const userAfter = await User.findByEmail('efimero@test.com', db);
+      assert.equal(userAfter, null);
+    });
   });
 
   // =========================================================================
@@ -327,7 +366,7 @@ describe('SUITE SAAS MULTI-TENANT, TRANSACCIONES ACID, FEATURE FLAGS Y ANALÍTIC
 
       // Productos de tenant-default
       const defaultProds = await Product.findAll(db, 'tenant-default');
-      assert.equal(defaultProds.length, 7, 'Ghanima Resto-Bar debe tener 7 productos de bar/cocina');
+      assert.equal(defaultProds.length, 7, 'Hera Resto-Bar debe tener 7 productos de bar/cocina');
 
       for (const p of defaultProds) {
         assert.equal(p.tenantId, 'tenant-default');

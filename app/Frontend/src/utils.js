@@ -1,5 +1,5 @@
 /**
- * GHANIMA CLOUD POS - Formatting & Common UI Helpers (ES6)
+ * HERA CLOUD POS - Formatting & Common UI Helpers (ES6)
  * Utilidades de moneda COP, fechas Colombia, modales, toasts (100% Tailwind, 0 inline styles)
  * y renderizado de tirilla térmica 80mm.
  */
@@ -188,7 +188,7 @@ export function renderThermalReceipt({
   cashReceived = null,
   cashChange = null
 }) {
-  const businessName = tenant.name || 'Ghanima Resto-Bar';
+  const businessName = tenant.name || 'HERA POS';
   const businessNit = tenant.nit || 'NIT: 900.876.543-1';
   const businessAddress = tenant.address || 'Colombia';
   const dateStr = formatDateTimeCO(date);
@@ -315,7 +315,7 @@ export function renderThermalReceipt({
     <!-- Pie del Recibo -->
     <div class="text-center pt-3 mt-3 border-t border-dashed border-slate-300 dark:border-slate-700 text-[10px] text-slate-400 space-y-1">
       <p class="font-bold text-slate-600 dark:text-slate-300">¡GRACIAS POR SU PREFERENCIA!</p>
-      <p>Sistema POS Multi-Tenant GHANIMA &middot; Colombia</p>
+      <p>Sistema POS Multi-Tenant HERA &middot; Colombia</p>
     </div>
   `;
 }

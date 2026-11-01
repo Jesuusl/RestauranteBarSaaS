@@ -1,58 +1,15 @@
 /**
- * GHANIMA CLOUD POS - Central State & Mock Fallback (ES6)
+ * HERA CLOUD POS - Central State & Mock Fallback (ES6)
  * Estado global reactivo y persistencia offline segura en LocalStorage.
  */
 
-const OFFLINE_DB_KEY = 'ghanima_demo_db_v2';
-const TOKEN_KEY = 'ghanima_token';
-const TENANT_KEY = 'ghanima_active_tenant';
-const USER_KEY = 'ghanima_current_user';
+const OFFLINE_DB_KEY = 'hera_pos_db_v1';
+const TOKEN_KEY = 'hera_token';
+const TENANT_KEY = 'hera_active_tenant';
+const USER_KEY = 'hera_current_user';
 
-// Mock Seed Data para modo Offline o demostración sin backend
-export const SEED_TENANTS = [
-  {
-    id: 'tenant-default',
-    name: 'Ghanima Resto-Bar',
-    nit: '900.876.543-1',
-    address: 'Calle 72 # 54-20, Montería',
-    businessType: 'RESTAURANT',
-    taxConfig: { applyImpoconsumo: true, impoconsumo: true, applyTip: true, suggestedTip: true },
-    enabledModules: {
-      express_pos: true,
-      sales: true,
-      catalog: true,
-      tables: true,
-      pos: true,
-      kds: true,
-      billing: true,
-      shifts: true
-    },
-    isActive: true,
-    totalSalesCOP: 228000,
-    salesCount: 3
-  },
-  {
-    id: 'tenant-express',
-    name: 'Punto Express Montería',
-    nit: '901.234.567-8',
-    address: 'Centro Comercial Alamedas, Local 102',
-    businessType: 'EXPRESS_COUNTER',
-    taxConfig: { applyImpoconsumo: false, impoconsumo: false, applyTip: false, suggestedTip: false },
-    enabledModules: {
-      express_pos: true,
-      sales: true,
-      catalog: true,
-      tables: false,
-      pos: false,
-      kds: false,
-      billing: false,
-      shifts: false
-    },
-    isActive: true,
-    totalSalesCOP: 94000,
-    salesCount: 3
-  }
-];
+// Tenants creados en producción (inicia limpio para creación desde Panel CEO)
+export const SEED_TENANTS = [];
 
 export const SEED_PRODUCTS = [
   { id: 'prod-mojito', name: 'Cóctel Mojito Clásico', category: 'Cócteles', station: 'BAR', salePriceCOP: 32000, isAvailable: true },
@@ -261,12 +218,12 @@ export function saveOfflineDb(db) {
 
 export function initOfflineDb() {
   let db = loadOfflineDb();
-  if (!db || !Array.isArray(db.tenants) || db.tenants.length === 0) {
+  if (!db) {
     db = {
-      tenants: JSON.parse(JSON.stringify(SEED_TENANTS)),
-      products: JSON.parse(JSON.stringify(SEED_PRODUCTS)),
-      tables: JSON.parse(JSON.stringify(SEED_TABLES)),
-      kdsOrders: JSON.parse(JSON.stringify(SEED_KDS_ORDERS)),
+      tenants: [],
+      products: [],
+      tables: [],
+      kdsOrders: [],
       invoices: [],
       shifts: []
     };

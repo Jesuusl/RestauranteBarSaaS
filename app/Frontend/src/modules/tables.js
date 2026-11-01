@@ -1,5 +1,5 @@
 /**
- * GHANIMA CLOUD POS - Tables Management Module (ES6)
+ * HERA CLOUD POS - Tables Management Module (ES6)
  * Plano táctil de mesas por zonas, transiciones de estado ACID,
  * apertura de comensales/sesión y CRUD completo.
  */
@@ -250,7 +250,7 @@ async function handleConfirmOpenTable() {
   const tableId = document.getElementById('modal-open-table-id')?.value;
   const waiterName = document.getElementById('modal-waiter-name')?.value.trim() || 'Mesero de Turno';
   const dinerCount = Number(document.getElementById('modal-diner-count')?.value) || 2;
-  const waiterId = state.currentUser?.id || 'usr-admin-ghanima';
+  const waiterId = state.currentUser?.id || 'usr-admin-hera';
 
   if (!tableId) return;
 

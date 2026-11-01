@@ -1,5 +1,5 @@
 /**
- * GHANIMA CLOUD POS - Express POS Module (ES6)
+ * HERA CLOUD POS - Express POS Module (ES6)
  * Cobro ultrarrápido de mostrador, catálogo táctil, carrito reactivo,
  * cálculo de Impoconsumo (8%), Propina (10%), calculadora de billetes COP y ticket térmico.
  */

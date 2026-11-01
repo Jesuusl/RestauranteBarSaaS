@@ -1,6 +1,6 @@
 const crypto = require('node:crypto');
 
-const DEFAULT_JWT_SECRET = 'ghanima-saas-secret-key-2026';
+const DEFAULT_JWT_SECRET = 'hera-saas-secret-key-2026';
 
 /**
  * Genera un hash criptográfico seguro para una contraseña usando scrypt nativo.

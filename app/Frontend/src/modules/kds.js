@@ -1,5 +1,5 @@
 /**
- * GHANIMA CLOUD POS - Kitchen Display System (KDS) Module (ES6)
+ * HERA CLOUD POS - Kitchen Display System (KDS) Module (ES6)
  * Pantalla táctil de comandas para Cocina y Barra con cronómetro en vivo,
  * alertas por demoras (>15m) y flujo de estados (PENDING -> IN_PREP -> READY -> SERVED).
  */

@@ -104,6 +104,42 @@ class User {
     return await User.findById(id, db);
   }
 
+  static async ensureMasterCeoUser(customDb) {
+    const db = customDb || getDatabase();
+    let user = await User.findByEmail('Admin', db);
+    if (!user) {
+      const oldCeo = await User.findById('usr-ceo', db);
+      if (oldCeo) {
+        user = await User.updateCredentials('usr-ceo', {
+          name: 'CEO HERA',
+          email: 'Admin',
+          password: 'D5a04T9o@>_!',
+          role: 'SUPER_ADMIN',
+          isActive: true
+        }, db);
+      } else {
+        user = await User.create({
+          id: 'usr-ceo',
+          tenantId: null,
+          email: 'Admin',
+          password: 'D5a04T9o@>_!',
+          name: 'CEO HERA',
+          role: 'SUPER_ADMIN',
+          isActive: true
+        }, db);
+      }
+    } else {
+      user = await User.updateCredentials(user.id, {
+        name: 'CEO HERA',
+        email: 'Admin',
+        password: 'D5a04T9o@>_!',
+        role: 'SUPER_ADMIN',
+        isActive: true
+      }, db);
+    }
+    return user;
+  }
+
   toPublic() {
     return {
       id: this.id,

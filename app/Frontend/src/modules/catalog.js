@@ -1,5 +1,5 @@
 /**
- * GHANIMA CLOUD POS - Menu & Products Catalog Module (ES6)
+ * HERA CLOUD POS - Menu & Products Catalog Module (ES6)
  * CRUD completo de productos, switch instantáneo de disponibilidad,
  * filtros por cocina/barra y sincronización con el catálogo táctil de Express y POS.
  */
