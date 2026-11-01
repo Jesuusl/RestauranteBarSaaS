@@ -124,8 +124,119 @@ export function setupBillingModule({ onCheckoutCompleted }) {
     });
   });
 
+  // Botón Pago Mixto en Facturar Mesa
+  const btnBillingOpenMixed = document.getElementById('btn-billing-open-mixed');
+  if (btnBillingOpenMixed) {
+    btnBillingOpenMixed.addEventListener('click', () => {
+      if (!previewData) {
+        showToast('Selecciona una mesa ocupada para facturar', 'warning');
+        return;
+      }
+      const totals = calculateCurrentTotals();
+      if (totals.totalCOP <= 0) {
+        showToast('La cuenta no tiene monto por cobrar', 'warning');
+        return;
+      }
+      import('./expressPos.js').then(({ openMixedPaymentModal }) => {
+        openMixedPaymentModal(totals.totalCOP, 'BILLING', async (payments, meta) => {
+          await executeMixedTableCheckout(payments, onCheckoutCompleted, meta);
+        });
+      });
+    });
+  }
+
   if (btnCheckout) {
     btnCheckout.addEventListener('click', () => executeCheckout(onCheckoutCompleted));
+  }
+}
+
+async function executeMixedTableCheckout(payments, onCheckoutCompleted, meta = {}) {
+  if (!previewData) return;
+  const totals = calculateCurrentTotals();
+  const tipSwitch = document.getElementById('tip-switch');
+
+  const payload = {
+    sessionId: previewData.sessionId,
+    tableId: state.selectedTableId,
+    items: previewData.items || [],
+    payments,
+    paymentMethod: payments.length > 1 ? 'MIXED' : (payments[0]?.method || 'CASH'),
+    amountPaidCOP: meta.assigned || totals.totalCOP,
+    includeTip: Boolean(tipSwitch?.checked),
+    splitType: activeSplitType
+  };
+
+  try {
+    let result = null;
+    let res = null;
+    try {
+      res = await apiFetch('/api/billing/checkout', {
+        method: 'POST',
+        body: payload
+      });
+    } catch (_) {
+      res = null;
+    }
+
+    if (res) {
+      if (res.ok) {
+        result = await res.json();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Error en checkout combinado');
+      }
+    } else {
+      result = processOfflineTableCheckout(previewData, payload, totals);
+    }
+
+    if (result) {
+      closeModal('modal-mixed-payment');
+      showToast('¡Mesa cobrada exitosamente con pago combinado!', 'success');
+
+      const finalPayments = result.payments || result.invoice?.payments || payments;
+      const finalChange = result.changeCOP ?? result.invoice?.changeCOP ?? (meta.changeCOP || 0);
+
+      // Tirilla térmica
+      const printableContainer = document.getElementById('receipt-printable-content');
+      if (printableContainer) {
+        printableContainer.innerHTML = renderThermalReceipt({
+          tenant: state.currentTenant || {},
+          invoiceNumber: result.invoice?.invoiceNumber || result.invoiceNumber || `FAC-${Date.now().toString().slice(-4)}`,
+          date: new Date(),
+          tableNumber: previewData.tableNumber || 1,
+          waiter: state.currentUser?.name || 'Mesero de Turno',
+          items: previewData.items || [],
+          subtotalCOP: totals.subtotalCOP,
+          taxCOP: totals.taxCOP,
+          hasTax: Boolean(totals.taxCOP),
+          tipCOP: totals.tipCOP,
+          hasTip: Boolean(totals.tipCOP),
+          totalCOP: totals.totalCOP,
+          paymentMethod: finalPayments.length > 1 ? 'MIXED' : (finalPayments[0]?.method || 'MIXED'),
+          payments: finalPayments,
+          cashReceived: meta.cash > 0 ? meta.cash : null,
+          cashChange: finalChange > 0 ? finalChange : null
+        });
+      }
+
+      openModal('modal-receipt');
+
+      const tbl = (state.tables || []).find(t => t.id === state.selectedTableId);
+      if (tbl) {
+        tbl.status = 'AVAILABLE';
+        tbl.currentSessionId = null;
+      }
+
+      state.selectedTableId = null;
+      previewData = null;
+      populateBillingSelect();
+
+      if (typeof onCheckoutCompleted === 'function') {
+        onCheckoutCompleted(result);
+      }
+    }
+  } catch (err) {
+    showToast(err.message || 'Error en facturación', 'alert');
   }
 }
 
@@ -514,20 +625,25 @@ async function executeCheckout(onCheckoutCompleted) {
 
   try {
     let result = null;
+    let res = null;
     try {
-      const res = await apiFetch('/api/billing/checkout', {
+      res = await apiFetch('/api/billing/checkout', {
         method: 'POST',
         body: payload
       });
+    } catch (_) {
+      res = null;
+    }
 
+    if (res) {
       if (res.ok) {
         result = await res.json();
       } else {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Error en checkout');
       }
-    } catch (apiErr) {
-      // Fallback offline
+    } else {
+      // Fallback offline únicamente si falló la red
       result = processOfflineTableCheckout(previewData, payload, totals);
     }
 

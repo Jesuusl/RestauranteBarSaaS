@@ -1,16 +1,30 @@
 /**
  * HERA CLOUD POS - CEO Super Admin Dashboard (ES6)
- * Gestión centralizada de inquilinos/restaurantes, switches de 8 módulos en tiempo real,
- * reglas tributarias (Impoconsumo/Propina), presets rápidos y KPIs globales.
+ * Gestión centralizada de inquilinos/restaurantes, switches de 9 módulos en tiempo real,
+ * reglas tributarias (Impoconsumo/Propina), gestión de suscripciones SaaS,
+ * cálculo de MRR, renovación en 1 clic y 5 KPIs globales.
+ * 100% Tailwind CSS, CERO estilos en línea.
  */
 
 import { state, initOfflineDb, saveOfflineDb } from '../state.js';
 import { apiFetch } from '../api.js';
-import { formatCOP, showToast, openModal, closeModal, escapeHtml } from '../utils.js';
+import { formatCOP, formatDateCO, showToast, openModal, closeModal, escapeHtml } from '../utils.js';
 import { routeToRoleScreen } from './auth.js';
 
 let cachedTenants = [];
 let impersonateCallback = null;
+
+export const MODULE_DEFINITIONS = [
+  { key: 'express_pos', label: '⚡ Cobro Rápido' },
+  { key: 'sales', label: '📊 Ventas' },
+  { key: 'catalog', label: '📦 Menú' },
+  { key: 'tables', label: '🗺️ Mesas' },
+  { key: 'pos', label: '📝 Comandas' },
+  { key: 'kds', label: '👨‍🍳 KDS Cocina' },
+  { key: 'billing', label: '🧾 Facturar Mesa' },
+  { key: 'shifts', label: '🔒 Cierre Turno' },
+  { key: 'inventory', label: '🏷️ Inventario' }
+];
 
 export function setupCeoDashboard({ onImpersonateTenant } = {}) {
   impersonateCallback = onImpersonateTenant || null;
@@ -18,6 +32,7 @@ export function setupCeoDashboard({ onImpersonateTenant } = {}) {
   const btnNewTenant = document.getElementById('btn-ceo-new-tenant');
   const searchInput = document.getElementById('ceo-search-input');
   const filterType = document.getElementById('ceo-filter-type');
+  const filterSub = document.getElementById('ceo-filter-sub');
   const formTenant = document.getElementById('form-tenant-manage');
   const formTypeSelect = document.getElementById('tenant-form-type');
 
@@ -37,6 +52,10 @@ export function setupCeoDashboard({ onImpersonateTenant } = {}) {
     filterType.addEventListener('change', () => filterAndRenderTenants());
   }
 
+  if (filterSub) {
+    filterSub.addEventListener('change', () => filterAndRenderTenants());
+  }
+
   if (formTypeSelect) {
     formTypeSelect.addEventListener('change', () => {
       const idInput = document.getElementById('tenant-form-id');
@@ -45,6 +64,24 @@ export function setupCeoDashboard({ onImpersonateTenant } = {}) {
       }
     });
   }
+
+  // Botones de extensión rápida de suscripción en modal
+  const btn30d = document.getElementById('btn-sub-quick-30d');
+  const btn90d = document.getElementById('btn-sub-quick-90d');
+  const btn365d = document.getElementById('btn-sub-quick-365d');
+  const subDateInput = document.getElementById('tenant-input-sub-ends');
+
+  function addDaysToSub(days) {
+    const baseDate = subDateInput?.value ? new Date(subDateInput.value) : new Date();
+    const target = new Date(baseDate.getTime() + days * 86400000);
+    if (subDateInput) {
+      subDateInput.value = target.toISOString().split('T')[0];
+    }
+  }
+
+  if (btn30d) btn30d.addEventListener('click', () => addDaysToSub(30));
+  if (btn90d) btn90d.addEventListener('click', () => addDaysToSub(90));
+  if (btn365d) btn365d.addEventListener('click', () => addDaysToSub(365));
 
   if (formTenant) {
     formTenant.addEventListener('submit', (e) => {
@@ -88,34 +125,83 @@ export async function loadCeoData() {
   filterAndRenderTenants();
 }
 
+function calculateMrr(tenants) {
+  const now = Date.now();
+  return tenants.reduce((acc, t) => {
+    if (t.isActive === false) return acc;
+    if (t.subscriptionStatus === 'EXPIRED') return acc;
+    const endRaw = t.subscriptionEndsAt || t.subscriptionEnd;
+    if (endRaw && new Date(endRaw).getTime() < now) return acc;
+    const plan = t.planName || t.plan || t.subscriptionPlan || 'PRO';
+    const defaultFee = plan === 'ENTERPRISE' ? 299000 : plan === 'BASIC' ? 89000 : plan === 'TRIAL' ? 0 : 149000;
+    const fee = Number(t.monthlyFeeCOP ?? t.monthlyFee ?? defaultFee);
+    return acc + fee;
+  }, 0);
+}
+
+function calculateExpiring(tenants) {
+  const now = Date.now();
+  const warningMs = 7 * 86400000; // 7 días
+  return tenants.filter(t => {
+    if (!t.subscriptionEndsAt && !t.subscriptionEnd) return false;
+    const end = new Date(t.subscriptionEndsAt || t.subscriptionEnd).getTime();
+    return end >= now && end <= (now + warningMs);
+  }).length;
+}
+
 function renderCeoKpis(kpis = {}) {
   const elTotal = document.getElementById('ceo-kpi-total-tenants');
   const elActive = document.getElementById('ceo-kpi-active-tenants');
+  const elMrr = document.getElementById('ceo-kpi-mrr');
+  const elExpiring = document.getElementById('ceo-kpi-expiring');
+  const elGlobalRev = document.getElementById('ceo-kpi-global-revenue');
+
+  // Retrocompatibilidad con IDs previos
   const elSales = document.getElementById('ceo-kpi-total-sales');
   const elRev = document.getElementById('ceo-kpi-total-revenue');
 
-  if (elTotal) elTotal.textContent = kpis.totalTenants ?? cachedTenants.length;
-  if (elActive) elActive.textContent = kpis.activeTenants ?? cachedTenants.filter(t => t.isActive).length;
+  const total = kpis.totalTenants ?? cachedTenants.length;
+  const active = kpis.activeTenants ?? cachedTenants.filter(t => t.isActive !== false).length;
+  const mrr = kpis.mrrCOP ?? calculateMrr(cachedTenants);
+  const expiring = kpis.expiringTenants ?? calculateExpiring(cachedTenants);
+  const globalRev = kpis.globalRevenueCOP ?? kpis.totalRevenueCOP ?? cachedTenants.reduce((acc, t) => acc + Number(t.totalRevenueCOP ?? t.totalSalesCOP ?? 0), 0);
+
+  if (elTotal) elTotal.textContent = total;
+  if (elActive) elActive.textContent = active;
+  if (elMrr) elMrr.textContent = formatCOP(mrr);
+  if (elExpiring) elExpiring.textContent = expiring;
+  if (elGlobalRev) elGlobalRev.textContent = formatCOP(globalRev);
+
   if (elSales) elSales.textContent = kpis.totalSalesCount ?? 0;
-  if (elRev) elRev.textContent = formatCOP(kpis.totalRevenueCOP ?? 0);
+  if (elRev) elRev.textContent = formatCOP(globalRev);
 }
 
 function computeAndRenderOfflineKpis(tenants) {
   const total = tenants.length;
-  const active = tenants.filter(t => t.isActive).length;
-  const totalSales = tenants.reduce((acc, t) => acc + (t.salesCount || 0), 0);
-  const totalRev = tenants.reduce((acc, t) => acc + (t.totalSalesCOP || 0), 0);
+  const active = tenants.filter(t => t.isActive !== false).length;
+  const totalSales = tenants.reduce((acc, t) => acc + Number(t.totalSalesCount ?? t.salesCount ?? 0), 0);
+  const totalRev = tenants.reduce((acc, t) => acc + Number(t.totalRevenueCOP ?? t.totalSalesCOP ?? 0), 0);
+  const mrr = calculateMrr(tenants);
+  const expiring = calculateExpiring(tenants);
+
   renderCeoKpis({
     totalTenants: total,
     activeTenants: active,
     totalSalesCount: totalSales,
-    totalRevenueCOP: totalRev
+    totalRevenueCOP: totalRev,
+    globalRevenueCOP: totalRev,
+    mrrCOP: mrr,
+    expiringTenants: expiring
   });
 }
 
 function filterAndRenderTenants() {
   const query = (document.getElementById('ceo-search-input')?.value || '').toLowerCase().trim();
   const typeFilter = document.getElementById('ceo-filter-type')?.value || 'ALL';
+  const subFilter = document.getElementById('ceo-filter-sub')?.value || 'ALL';
+
+  const now = Date.now();
+  const warningMs = 7 * 86400000;
 
   const filtered = cachedTenants.filter(t => {
     const matchQuery = !query ||
@@ -124,7 +210,24 @@ function filterAndRenderTenants() {
       (t.address || '').toLowerCase().includes(query);
     
     const matchType = typeFilter === 'ALL' || t.businessType === typeFilter;
-    return matchQuery && matchType;
+
+    let matchSub = true;
+    if (subFilter !== 'ALL') {
+      const plan = t.planName || t.plan || t.subscriptionPlan || 'PRO';
+      const end = t.subscriptionEndsAt || t.subscriptionEnd ? new Date(t.subscriptionEndsAt || t.subscriptionEnd).getTime() : null;
+
+      if (subFilter === 'TRIAL') {
+        matchSub = plan === 'TRIAL';
+      } else if (subFilter === 'EXPIRED') {
+        matchSub = Boolean(end && end < now);
+      } else if (subFilter === 'EXPIRING') {
+        matchSub = Boolean(end && end >= now && end <= (now + warningMs));
+      } else if (subFilter === 'ACTIVE') {
+        matchSub = !end || end > (now + warningMs);
+      }
+    }
+
+    return matchQuery && matchType && matchSub;
   });
 
   renderTenantsGrid(filtered);
@@ -143,16 +246,8 @@ function renderTenantsGrid(tenants) {
     return;
   }
 
-  const moduleDefinitions = [
-    { key: 'express_pos', label: '⚡ Cobro Rápido' },
-    { key: 'sales', label: '📊 Ventas' },
-    { key: 'catalog', label: '📦 Menú' },
-    { key: 'tables', label: '🗺️ Mesas' },
-    { key: 'pos', label: '📝 Comandas' },
-    { key: 'kds', label: '👨‍🍳 KDS Cocina' },
-    { key: 'billing', label: '🧾 Facturar Mesa' },
-    { key: 'shifts', label: '🔒 Cierre Turno' }
-  ];
+  const now = Date.now();
+  const warningMs = 7 * 86400000;
 
   grid.innerHTML = tenants.map(t => {
     const isExpress = t.businessType === 'EXPRESS_COUNTER';
@@ -160,7 +255,34 @@ function renderTenantsGrid(tenants) {
     const modules = t.enabledModules || {};
     const tax = t.taxConfig || {};
 
-    const moduleToggles = moduleDefinitions.map(m => {
+    const plan = t.planName || t.plan || t.subscriptionPlan || 'PRO';
+    const defaultFee = plan === 'ENTERPRISE' ? 299000 : plan === 'BASIC' ? 89000 : plan === 'TRIAL' ? 0 : 149000;
+    const monthlyFee = Number(t.monthlyFeeCOP ?? t.monthlyFee ?? defaultFee);
+    const subEnd = t.subscriptionEndsAt || t.subscriptionEnd ? new Date(t.subscriptionEndsAt || t.subscriptionEnd) : null;
+    
+    let subStatusBadge = '';
+    if (!subEnd) {
+      subStatusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">Sin límite</span>';
+    } else {
+      const endTime = subEnd.getTime();
+      const daysLeft = Math.ceil((endTime - now) / 86400000);
+      if (endTime < now) {
+        subStatusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400">Vencida hace ${Math.abs(daysLeft)}d</span>`;
+      } else if (endTime <= (now + warningMs)) {
+        subStatusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400">Vence en ${daysLeft}d</span>`;
+      } else {
+        subStatusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400">Al día (${daysLeft}d)</span>`;
+      }
+    }
+
+    const planLabels = {
+      TRIAL: '🎁 Demo',
+      BASIC: '⚡ Básico',
+      PRO: '⭐ Profesional',
+      ENTERPRISE: '🏢 Enterprise'
+    };
+
+    const moduleToggles = MODULE_DEFINITIONS.map(m => {
       const checked = Boolean(modules[m.key]) ? 'checked' : '';
       return `
         <label class="flex items-center justify-between p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 cursor-pointer text-xs">
@@ -202,6 +324,23 @@ function renderTenantsGrid(tenants) {
           </div>
         </div>
 
+        <!-- Tarjeta de Suscripción SaaS (HERA v2.0) -->
+        <div class="p-3 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 flex items-center justify-between text-xs gap-2">
+          <div>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="font-bold text-indigo-950 dark:text-indigo-200">${planLabels[plan] || plan}</span>
+              <span class="text-indigo-600 dark:text-indigo-400 font-mono font-extrabold">&middot; ${formatCOP(monthlyFee)}/mes</span>
+            </div>
+            <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
+              <span>Vencimiento: ${subEnd ? formatDateCO(subEnd) : 'Ilimitado'}</span>
+              ${subStatusBadge}
+            </div>
+          </div>
+          <button type="button" class="btn-renew-sub px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm transition flex items-center gap-1 whitespace-nowrap" data-tenant-id="${t.id}">
+            <span>🔄</span> <span>+1 Mes</span>
+          </button>
+        </div>
+
         <!-- Botones de Preset Rápido (1 Clic) -->
         <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
           <span class="text-[10px] uppercase font-bold text-slate-400">Presets:</span>
@@ -213,10 +352,10 @@ function renderTenantsGrid(tenants) {
           </button>
         </div>
 
-        <!-- Módulos Habilitados (8 Switches) -->
+        <!-- Módulos Habilitados (9 Switches) -->
         <div class="space-y-1.5">
           <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Módulos Dinámicos</span>
-          <div class="grid grid-cols-2 gap-2">
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
             ${moduleToggles}
           </div>
         </div>
@@ -241,7 +380,7 @@ function renderTenantsGrid(tenants) {
 
   // Vincular eventos de switches de módulos
   grid.querySelectorAll('.ceo-mod-toggle').forEach(chk => {
-    chk.addEventListener('change', async (e) => {
+    chk.addEventListener('change', async () => {
       const tenantId = chk.dataset.tenantId;
       const modKey = chk.dataset.modKey;
       const isEnabled = chk.checked;
@@ -251,11 +390,19 @@ function renderTenantsGrid(tenants) {
 
   // Vincular eventos de switches tributarios
   grid.querySelectorAll('.ceo-tax-toggle').forEach(chk => {
-    chk.addEventListener('change', async (e) => {
+    chk.addEventListener('change', async () => {
       const tenantId = chk.dataset.tenantId;
       const taxKey = chk.dataset.taxKey;
       const isEnabled = chk.checked;
       await updateTenantTaxState(tenantId, taxKey, isEnabled);
+    });
+  });
+
+  // Vincular botón renovar suscripción (+1 Mes)
+  grid.querySelectorAll('.btn-renew-sub').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const tenantId = btn.dataset.tenantId;
+      await renewTenantSubscription(tenantId);
     });
   });
 
@@ -319,6 +466,41 @@ function renderTenantsGrid(tenants) {
       }
     });
   });
+}
+
+async function renewTenantSubscription(tenantId) {
+  try {
+    const res = await apiFetch(`/api/ceo/tenants/${tenantId}/renew`, {
+      method: 'POST',
+      body: { months: 1 }
+    });
+
+    if (res.ok) {
+      showToast('Suscripción extendida +1 Mes', 'success');
+      await loadCeoData();
+      return;
+    }
+  } catch (_) {}
+
+  // Fallback local
+  const tenant = cachedTenants.find(t => t.id === tenantId);
+  if (tenant) {
+    const curEnd = tenant.subscriptionEndsAt || tenant.subscriptionEnd ? new Date(tenant.subscriptionEndsAt || tenant.subscriptionEnd) : new Date();
+    const nextEnd = new Date(Math.max(Date.now(), curEnd.getTime()) + 30 * 86400000);
+    tenant.subscriptionEndsAt = nextEnd.toISOString();
+    tenant.subscriptionEnd = tenant.subscriptionEndsAt;
+    
+    const db = initOfflineDb();
+    const dbT = (db.tenants || []).find(t => t.id === tenantId);
+    if (dbT) {
+      dbT.subscriptionEndsAt = tenant.subscriptionEndsAt;
+      dbT.subscriptionEnd = tenant.subscriptionEnd;
+    }
+    saveOfflineDb(db);
+    showToast('Suscripción renovada localmente (+30 días)', 'info');
+    computeAndRenderOfflineKpis(cachedTenants);
+    filterAndRenderTenants();
+  }
 }
 
 async function updateTenantModuleState(tenantId, modKey, isEnabled) {
@@ -389,6 +571,7 @@ async function applyPreset(tenantId, type) {
     express_pos: true,
     sales: true,
     catalog: true,
+    inventory: true,
     tables: !isExpress,
     pos: !isExpress,
     kds: !isExpress,
@@ -501,6 +684,7 @@ function applyFormTypeDefaults(type) {
     express_pos: true,
     sales: true,
     catalog: true,
+    inventory: true,
     tables: !isExpress,
     pos: !isExpress,
     kds: !isExpress,
@@ -529,6 +713,18 @@ function openCreateTenantModal() {
   if (adminEmail) adminEmail.value = '';
   if (adminPassword) adminPassword.value = '';
 
+  const planInput = document.getElementById('tenant-input-plan');
+  const feeInput = document.getElementById('tenant-input-monthly-fee');
+  const subDateInput = document.getElementById('tenant-input-sub-ends');
+  
+  if (planInput) planInput.value = 'PRO';
+  if (feeInput) feeInput.value = '149000';
+  if (subDateInput) {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    subDateInput.value = d.toISOString().split('T')[0];
+  }
+
   const typeSelect = document.getElementById('tenant-form-type');
   const selectedType = typeSelect?.value || 'RESTAURANT';
   applyFormTypeDefaults(selectedType);
@@ -549,6 +745,10 @@ function openEditTenantModal(tenant) {
   const adminEmail = document.getElementById('tenant-admin-email');
   const adminPassword = document.getElementById('tenant-admin-password');
 
+  const planInput = document.getElementById('tenant-input-plan');
+  const feeInput = document.getElementById('tenant-input-monthly-fee');
+  const subDateInput = document.getElementById('tenant-input-sub-ends');
+
   if (idInput) idInput.value = tenant.id || '';
   if (nameInput) nameInput.value = tenant.name || '';
   if (nitInput) nitInput.value = tenant.nit || '';
@@ -558,6 +758,19 @@ function openEditTenantModal(tenant) {
   if (adminName) adminName.value = tenant.adminName || '';
   if (adminEmail) adminEmail.value = tenant.adminEmail || '';
   if (adminPassword) adminPassword.value = '';
+
+  const plan = tenant.planName || tenant.plan || tenant.subscriptionPlan || 'PRO';
+  if (planInput) planInput.value = plan;
+  const defaultFee = plan === 'ENTERPRISE' ? 299000 : plan === 'BASIC' ? 89000 : plan === 'TRIAL' ? 0 : 149000;
+  if (feeInput) feeInput.value = String(tenant.monthlyFeeCOP ?? tenant.monthlyFee ?? defaultFee);
+  
+  if (subDateInput) {
+    if (tenant.subscriptionEndsAt || tenant.subscriptionEnd) {
+      subDateInput.value = new Date(tenant.subscriptionEndsAt || tenant.subscriptionEnd).toISOString().split('T')[0];
+    } else {
+      subDateInput.value = '';
+    }
+  }
 
   const tax = tenant.taxConfig || {};
   if (taxImp) taxImp.checked = Boolean(tax.applyImpoconsumo ?? tax.impoconsumo ?? true);
@@ -581,6 +794,12 @@ async function handleSaveTenantForm() {
   const adminName = document.getElementById('tenant-admin-name')?.value.trim();
   const adminEmail = document.getElementById('tenant-admin-email')?.value.trim();
   const adminPassword = document.getElementById('tenant-admin-password')?.value;
+
+  const plan = document.getElementById('tenant-input-plan')?.value || 'PRO';
+  const rawFee = document.getElementById('tenant-input-monthly-fee')?.value;
+  const monthlyFeeCOP = (rawFee !== undefined && String(rawFee).trim() !== '') ? Math.max(0, Number(rawFee) || 0) : 149000;
+  const subDateVal = document.getElementById('tenant-input-sub-ends')?.value;
+  const subscriptionEndsAt = subDateVal ? new Date(`${subDateVal}T23:59:59.999Z`).toISOString() : null;
 
   const impoconsumo = Boolean(document.getElementById('tenant-tax-impoconsumo')?.checked);
   const suggestedTip = Boolean(document.getElementById('tenant-tax-tip')?.checked);
@@ -612,6 +831,10 @@ async function handleSaveTenantForm() {
     nit,
     address,
     businessType,
+    planName: plan,
+    plan,
+    monthlyFeeCOP,
+    subscriptionEndsAt,
     taxConfig,
     enabledModules
   };
@@ -627,7 +850,7 @@ async function handleSaveTenantForm() {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         showToast(err.error || 'Error al actualizar restaurante', 'alert');
-        return; // No guardar offline si el backend rechazó la petición
+        return;
       }
 
       if (adminEmail || adminPassword || adminName) {
@@ -661,7 +884,7 @@ async function handleSaveTenantForm() {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         showToast(err.error || 'Error al crear restaurante', 'alert');
-        return; // No guardar offline si el backend rechazó la petición
+        return;
       }
 
       closeModal('modal-tenant-form');
@@ -695,3 +918,4 @@ async function handleSaveTenantForm() {
     loadCeoData();
   }
 }
+

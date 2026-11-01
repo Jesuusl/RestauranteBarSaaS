@@ -6,13 +6,14 @@
 
 import { state, initOfflineDb, saveOfflineDb } from '../state.js';
 import { apiFetch } from '../api.js';
-import { formatCOP, formatDateTimeCO, showToast, playNotificationSound, escapeHtml } from '../utils.js';
+import { formatCOP, formatDateTimeCO, showToast, playNotificationSound, escapeHtml, openModal, closeModal } from '../utils.js';
 
 let activeShift = null;
 
 export function setupShiftsModule() {
   const btnOpen = document.getElementById('btn-open-shift');
   const btnClose = document.getElementById('btn-submit-blind-close');
+  const btnConfirmOpenModal = document.getElementById('btn-confirm-open-shift');
 
   if (btnOpen) {
     btnOpen.addEventListener('click', () => handleOpenNewShift());
@@ -21,11 +22,25 @@ export function setupShiftsModule() {
   if (btnClose) {
     btnClose.addEventListener('click', () => executeBlindClose());
   }
+
+  if (btnConfirmOpenModal) {
+    btnConfirmOpenModal.addEventListener('click', () => handleConfirmOpenShiftModal());
+  }
+
+  document.querySelectorAll('.btn-quick-shift-base').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cashInput = document.getElementById('open-shift-initial-cash');
+      if (cashInput) {
+        cashInput.value = btn.getAttribute('data-base-amount') || '0';
+      }
+    });
+  });
 }
 
 export async function loadActiveShift() {
   const banner = document.getElementById('shift-active-banner');
   const btnOpen = document.getElementById('btn-open-shift');
+  const baseSpan = document.getElementById('shift-active-base');
 
   try {
     const res = await apiFetch('/api/shifts/active');
@@ -58,19 +73,29 @@ export async function loadActiveShift() {
 
 function renderShiftBanner(shift) {
   const banner = document.getElementById('shift-active-banner');
+  const baseSpan = document.getElementById('shift-active-base');
   if (!banner) return;
 
   if (shift) {
+    const initialCash = Number(shift.initialCashCOP ?? shift.initialCash ?? 0);
+    if (baseSpan) {
+      baseSpan.textContent = `Base: ${formatCOP(initialCash)}`;
+      baseSpan.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-indigo-100 dark:bg-indigo-900/70 text-indigo-700 dark:text-indigo-300';
+    }
+
     banner.innerHTML = `
       <div class="space-y-0.5">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
           <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
           <h3 class="text-sm font-bold font-display text-indigo-950 dark:text-indigo-200">
             Turno de Caja Activo &middot; ${escapeHtml(shift.cashierName || state.currentUser?.name || 'Cajero')}
           </h3>
+          <span id="shift-active-base" class="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-indigo-100 dark:bg-indigo-900/70 text-indigo-700 dark:text-indigo-300">
+            Base: ${formatCOP(initialCash)}
+          </span>
         </div>
         <p class="text-xs text-indigo-700 dark:text-indigo-400">
-          Iniciado: ${formatDateTimeCO(shift.startTime || shift.openedAt || new Date())} &middot; Base inicial: ${formatCOP(shift.initialCashCOP || 100000)}
+          Iniciado: ${formatDateTimeCO(shift.startTime || shift.openedAt || new Date())} &middot; Fondo físico en caja
         </p>
       </div>
       <span class="px-2.5 py-1 text-xs font-bold rounded-xl bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
@@ -78,9 +103,19 @@ function renderShiftBanner(shift) {
       </span>
     `;
   } else {
+    if (baseSpan) {
+      baseSpan.textContent = 'Sin Turno';
+      baseSpan.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-amber-100 dark:bg-amber-900/70 text-amber-700 dark:text-amber-300';
+    }
+
     banner.innerHTML = `
       <div>
-        <h3 class="text-sm font-bold font-display text-amber-900 dark:text-amber-200">No hay turno de caja abierto</h3>
+        <div class="flex items-center gap-2 flex-wrap">
+          <h3 class="text-sm font-bold font-display text-amber-900 dark:text-amber-200">No hay turno de caja abierto</h3>
+          <span id="shift-active-base" class="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-amber-100 dark:bg-amber-900/70 text-amber-700 dark:text-amber-300">
+            Sin Turno
+          </span>
+        </div>
         <p class="text-xs text-amber-700 dark:text-amber-400">Abre un nuevo turno para registrar transacciones y realizar el arqueo ciego</p>
       </div>
       <button type="button" id="btn-open-shift" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow transition">
@@ -94,12 +129,27 @@ function renderShiftBanner(shift) {
   }
 }
 
-async function handleOpenNewShift() {
-  const baseCashStr = prompt('Ingresa el monto de base de caja inicial en COP:', '100000');
-  if (baseCashStr === null) return;
+function handleOpenNewShift() {
+  const cashierInput = document.getElementById('open-shift-cashier-name');
+  const cashInput = document.getElementById('open-shift-initial-cash');
 
-  const initialCashCOP = Number(baseCashStr) || 100000;
-  const cashierName = state.currentUser?.name || 'Cajero de Turno';
+  if (cashierInput) {
+    cashierInput.value = state.currentUser?.name || 'Cajero de Turno';
+  }
+  if (cashInput) {
+    cashInput.value = '100000';
+  }
+
+  openModal('modal-open-shift');
+}
+
+async function handleConfirmOpenShiftModal() {
+  const cashierInput = document.getElementById('open-shift-cashier-name');
+  const cashInput = document.getElementById('open-shift-initial-cash');
+
+  const cashierName = cashierInput?.value?.trim() || state.currentUser?.name || 'Cajero de Turno';
+  const rawCashVal = cashInput?.value !== undefined ? String(cashInput.value).trim() : '';
+  const initialCashCOP = rawCashVal !== '' ? Math.max(0, Number(rawCashVal) || 0) : 0;
   const cashierId = state.currentUser?.id || 'usr-default';
 
   try {
@@ -114,9 +164,14 @@ async function handleOpenNewShift() {
 
     if (res.ok) {
       const data = await res.json();
-      activeShift = data;
-      showToast('Nuevo turno de caja abierto', 'success');
+      activeShift = data.shift || data;
+      closeModal('modal-open-shift');
+      showToast('Nuevo turno de caja abierto con éxito', 'success');
       loadActiveShift();
+      return;
+    } else {
+      const err = await res.json().catch(() => ({}));
+      showToast(err.error || 'No se pudo abrir el turno de caja', 'alert');
       return;
     }
   } catch (_) {}
@@ -136,6 +191,7 @@ async function handleOpenNewShift() {
   db.shifts.push(newS);
   saveOfflineDb(db);
   activeShift = newS;
+  closeModal('modal-open-shift');
   showToast('Turno abierto localmente', 'info');
   loadActiveShift();
 }
@@ -180,20 +236,25 @@ async function executeBlindClose() {
 
   try {
     let result = null;
+    let res = null;
     try {
-      const res = await apiFetch(`/api/shifts/${shiftId}/blind-close`, {
+      res = await apiFetch(`/api/shifts/${shiftId}/blind-close`, {
         method: 'POST',
         body: payload
       });
+    } catch (_) {
+      res = null;
+    }
 
+    if (res) {
       if (res.ok) {
         result = await res.json();
       } else {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Error al ejecutar cierre ciego');
       }
-    } catch (apiErr) {
-      // Fallback offline
+    } else {
+      // Fallback offline únicamente si falló la red
       result = processOfflineBlindClose(payload);
     }
 
@@ -284,7 +345,14 @@ function renderBlindAuditResult(data) {
           </thead>
           <tbody class="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
             <tr>
-              <td class="py-2 font-sans font-bold">💵 Efectivo</td>
+              <td class="py-2 font-sans font-bold">
+                <div>💵 Efectivo</div>
+                ${(audit.initialCashCOP !== undefined || shift.initialCashCOP !== undefined) ? `
+                  <div class="text-[10px] font-normal text-slate-400">
+                    Base: ${formatCOP(audit.initialCashCOP ?? shift.initialCashCOP ?? 0)} + Ventas: ${formatCOP(Math.max(0, (audit.systemCashCOP ?? audit.expectedCashCOP ?? 0) - Number(audit.initialCashCOP ?? shift.initialCashCOP ?? 0)))}
+                  </div>
+                ` : ''}
+              </td>
               <td class="py-2 text-right">${formatCOP(audit.systemCashCOP ?? audit.expectedCashCOP ?? audit.cashExpectedCOP ?? 0)}</td>
               <td class="py-2 text-right">${formatCOP(audit.declaredCashCOP ?? audit.cashDeclaredCOP ?? 0)}</td>
               <td class="py-2 text-right">${renderDiff(audit.discrepancyCashCOP)}</td>
@@ -323,18 +391,28 @@ function renderBlindAuditResult(data) {
 
 function processOfflineBlindClose(payload) {
   const db = initOfflineDb();
-  const invoices = db.invoices || [];
+  const invoices = (db.invoices || []).filter(inv => inv.status !== 'CANCELLED');
 
-  let expectedCash = 100000; // Base inicial
+  const initialCash = Number(activeShift?.initialCashCOP ?? 0);
+  let expectedCash = initialCash;
   let expectedCard = 0;
   let expectedTransfer = 0;
 
   invoices.forEach(inv => {
-    const m = inv.paymentMethod;
-    const tot = inv.totalCOP || 0;
-    if (m === 'CASH') expectedCash += tot;
-    else if (m === 'CARD') expectedCard += tot;
-    else expectedTransfer += tot;
+    if (Array.isArray(inv.payments) && inv.payments.length > 0) {
+      inv.payments.forEach(p => {
+        const amt = Number(p.amountCOP || 0);
+        if (p.method === 'CASH') expectedCash += amt;
+        else if (p.method === 'CARD') expectedCard += amt;
+        else expectedTransfer += amt;
+      });
+    } else {
+      const m = inv.paymentMethod;
+      const tot = inv.totalCOP || 0;
+      if (m === 'CASH') expectedCash += tot;
+      else if (m === 'CARD') expectedCard += tot;
+      else expectedTransfer += tot;
+    }
   });
 
   const discrepancyCash = payload.cashDeclaredCOP - expectedCash;

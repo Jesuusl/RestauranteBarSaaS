@@ -16,6 +16,7 @@ import { setupKdsModule, loadKdsOrders } from './modules/kds.js';
 import { setupBillingModule, populateBillingSelect } from './modules/billing.js';
 import { setupCatalogModule, loadCatalogProducts, openNewProductModal } from './modules/catalog.js';
 import { setupShiftsModule, loadActiveShift } from './modules/shifts.js';
+import { setupStockModule, loadStockView } from './modules/stock.js';
 import { showToast } from './utils.js';
 
 function initApp() {
@@ -161,6 +162,12 @@ function initApp() {
     console.error('setupShiftsModule error:', e);
   }
 
+  try {
+    setupStockModule();
+  } catch (e) {
+    console.error('setupStockModule error:', e);
+  }
+
   // 2. Navegación SPA por pestañas
   try {
     setupNavigationTabs();
@@ -283,6 +290,8 @@ export function switchView(viewId) {
     loadCatalogProducts();
   } else if (viewId === 'view-shifts') {
     loadActiveShift();
+  } else if (viewId === 'view-inventory') {
+    loadStockView();
   }
 }
 
@@ -325,6 +334,11 @@ async function reloadAllRestaurantData() {
     loadExpressCatalog(state.products || []);
   }
 
+  // Inventario Simple
+  if (Boolean(mods.inventory)) {
+    promises.push(loadStockView());
+  }
+
   await Promise.allSettled(promises);
 }
 
@@ -337,12 +351,21 @@ function initAppSSE() {
 
     if (event.type === 'STOCK_ALERT') {
       const pName = event.data?.productName || event.data?.name || 'Producto';
-      const stock = event.data?.currentStock ?? event.data?.stock ?? 0;
+      const stock = event.data?.stockUnits ?? event.data?.currentStock ?? event.data?.stock ?? 0;
       showToast(`⚠️ Alerta de Stock: ${pName} tiene solo ${stock} unidades`, 'alert');
+    } else if (event.type === 'PRODUCT_STOCK_UPDATED') {
+      if (Boolean(state.currentTenant?.enabledModules?.inventory)) {
+        loadStockView();
+      }
+      if (state.currentTenant?.enabledModules?.catalog !== false) {
+        loadCatalogProducts({ onCatalogChanged: (prods) => loadExpressCatalog(prods) });
+      } else {
+        loadExpressCatalog(state.products || []);
+      }
     } else if (event.type === 'TENANT_UPDATED') {
       if (state.currentTenant && state.currentTenant.id === event.tenantId) {
         state.currentTenant = { ...state.currentTenant, ...event.data };
-        saveAuthSession(state.currentUser, state.currentTenant);
+        saveAuthSession(state.token, state.currentUser, state.currentTenant);
         const firstVisibleView = applyModularNavigation(state.currentTenant.enabledModules || {});
 
         const currentModMap = {
@@ -353,7 +376,8 @@ function initAppSSE() {
           'view-pos': 'pos',
           'view-kds': 'kds',
           'view-billing': 'billing',
-          'view-shifts': 'shifts'
+          'view-shifts': 'shifts',
+          'view-inventory': 'inventory'
         };
         const currentMod = currentModMap[state.activeView];
         if (currentMod && !Boolean(state.currentTenant.enabledModules?.[currentMod])) {
@@ -369,6 +393,25 @@ function initAppSSE() {
       }
       if (Boolean(state.currentTenant?.enabledModules?.tables)) {
         loadTables();
+      }
+      if (Boolean(state.currentTenant?.enabledModules?.inventory)) {
+        loadStockView();
+      }
+      if (state.activeScreen === 'ceo-screen') {
+        loadCeoData();
+      }
+    } else if (event.type === 'SALE_CANCELLED') {
+      if (Boolean(state.currentTenant?.enabledModules?.sales)) {
+        loadSalesSummary();
+      }
+      if (Boolean(state.currentTenant?.enabledModules?.inventory)) {
+        loadStockView();
+      }
+      if (Boolean(state.currentTenant?.enabledModules?.shifts)) {
+        loadActiveShift();
+      }
+      if (state.currentTenant?.enabledModules?.catalog !== false) {
+        loadCatalogProducts({ onCatalogChanged: (prods) => loadExpressCatalog(prods) });
       }
       if (state.activeScreen === 'ceo-screen') {
         loadCeoData();

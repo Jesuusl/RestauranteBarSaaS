@@ -4,6 +4,7 @@ const DEFAULT_MODULES = Object.freeze({
   express_pos: true,
   sales: true,
   catalog: true,
+  inventory: true,
   tables: true,
   pos: true,
   kds: true,
@@ -48,6 +49,10 @@ class Tenant {
     this.address = data.address || null;
     this.businessType = data.businessType || data.businesstype || 'RESTAURANT';
 
+    this.planName = data.planName || data.planname || 'PRO';
+    this.monthlyFeeCOP = Number(data.monthlyFeeCOP ?? data.monthlyfeecop ?? 0);
+    this.subscriptionEndsAt = data.subscriptionEndsAt || data.subscriptionendsat || null;
+
     const rawActive = data.isActive ?? data.isactive;
     this.isActive = rawActive === undefined
       ? true
@@ -66,6 +71,10 @@ class Tenant {
     this.createdAt = data.createdAt || data.createdat || new Date().toISOString();
   }
 
+  isSubscriptionExpired() {
+    return Boolean(this.subscriptionEndsAt && new Date(this.subscriptionEndsAt).getTime() < Date.now());
+  }
+
   static async create(data, customDb) {
     const db = customDb || getDatabase();
     const id = data.id || `tenant-${Date.now()}`;
@@ -74,16 +83,24 @@ class Tenant {
     const taxConfig = normalizeTaxConfig(data.taxConfig);
     const createdAt = data.createdAt || new Date().toISOString();
     const isActive = data.isActive !== undefined ? Boolean(data.isActive) : true;
+    const planName = data.planName || 'PRO';
+    const monthlyFeeCOP = Number(data.monthlyFeeCOP ?? 0);
+    const subscriptionEndsAt = data.subscriptionEndsAt && String(data.subscriptionEndsAt).trim() !== ''
+      ? new Date(data.subscriptionEndsAt).toISOString()
+      : null;
 
     await db.query(`
-      INSERT INTO tenants (id, name, slug, nit, address, businessType, isActive, enabledModules, taxConfig, createdAt)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      INSERT INTO tenants (id, name, slug, nit, address, businessType, planName, monthlyFeeCOP, subscriptionEndsAt, isActive, enabledModules, taxConfig, createdAt)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
         slug = EXCLUDED.slug,
         nit = EXCLUDED.nit,
         address = EXCLUDED.address,
         businessType = EXCLUDED.businessType,
+        planName = EXCLUDED.planName,
+        monthlyFeeCOP = EXCLUDED.monthlyFeeCOP,
+        subscriptionEndsAt = EXCLUDED.subscriptionEndsAt,
         isActive = EXCLUDED.isActive,
         enabledModules = EXCLUDED.enabledModules,
         taxConfig = EXCLUDED.taxConfig
@@ -94,6 +111,9 @@ class Tenant {
       data.nit || null,
       data.address || null,
       data.businessType || 'RESTAURANT',
+      planName,
+      monthlyFeeCOP,
+      subscriptionEndsAt,
       isActive,
       enabledModules,
       taxConfig,
@@ -131,6 +151,16 @@ class Tenant {
     const nit = data.nit !== undefined ? data.nit : existing.nit;
     const address = data.address !== undefined ? data.address : existing.address;
     const businessType = data.businessType !== undefined ? data.businessType : existing.businessType;
+    const planName = data.planName !== undefined ? data.planName : existing.planName;
+    const monthlyFeeCOP = data.monthlyFeeCOP !== undefined ? Number(data.monthlyFeeCOP) : existing.monthlyFeeCOP;
+    
+    let subscriptionEndsAt = existing.subscriptionEndsAt;
+    if (data.subscriptionEndsAt !== undefined) {
+      subscriptionEndsAt = data.subscriptionEndsAt && String(data.subscriptionEndsAt).trim() !== ''
+        ? new Date(data.subscriptionEndsAt).toISOString()
+        : null;
+    }
+
     const isActive = data.isActive !== undefined ? Boolean(data.isActive) : existing.isActive;
     const taxConfig = data.taxConfig !== undefined ? normalizeTaxConfig(data.taxConfig) : existing.taxConfig;
     const enabledModules = data.enabledModules !== undefined ? data.enabledModules : existing.enabledModules;
@@ -138,14 +168,18 @@ class Tenant {
     await db.query(`
       UPDATE tenants
       SET name = $1, slug = $2, nit = $3, address = $4, businessType = $5,
-          isActive = $6, taxConfig = $7, enabledModules = $8
-      WHERE id = $9
+          planName = $6, monthlyFeeCOP = $7, subscriptionEndsAt = $8,
+          isActive = $9, taxConfig = $10, enabledModules = $11
+      WHERE id = $12
     `, [
       name,
       slug,
       nit,
       address,
       businessType,
+      planName,
+      monthlyFeeCOP,
+      subscriptionEndsAt,
       isActive,
       taxConfig,
       enabledModules,
@@ -166,6 +200,20 @@ class Tenant {
   }
 
   toPublic() {
+    let daysRemaining = null;
+    if (this.subscriptionEndsAt) {
+      daysRemaining = Math.ceil((new Date(this.subscriptionEndsAt).getTime() - Date.now()) / 86400000);
+    }
+
+    let subscriptionStatus = 'ACTIVE';
+    if (!this.isActive) {
+      subscriptionStatus = 'SUSPENDED';
+    } else if (this.subscriptionEndsAt && new Date(this.subscriptionEndsAt).getTime() < Date.now()) {
+      subscriptionStatus = 'EXPIRED';
+    } else if (daysRemaining !== null && daysRemaining <= 5) {
+      subscriptionStatus = 'EXPIRING_SOON';
+    }
+
     return {
       id: this.id,
       name: this.name,
@@ -173,6 +221,11 @@ class Tenant {
       nit: this.nit,
       address: this.address,
       businessType: this.businessType,
+      planName: this.planName,
+      monthlyFeeCOP: this.monthlyFeeCOP,
+      subscriptionEndsAt: this.subscriptionEndsAt,
+      daysRemaining,
+      subscriptionStatus,
       isActive: this.isActive,
       enabledModules: this.enabledModules,
       taxConfig: this.taxConfig,

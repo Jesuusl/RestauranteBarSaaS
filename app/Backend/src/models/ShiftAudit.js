@@ -9,6 +9,7 @@ class ShiftAudit {
     this.cashierName = data.cashierName || data.cashiername;
     this.openedAt = data.openedAt || data.openedat || new Date().toISOString();
     this.closedAt = data.closedAt || data.closedat || null;
+    this.initialCashCOP = Number(data.initialCashCOP ?? data.initialcashcop ?? 0);
     this.declaredCashCOP = Number(data.declaredCashCOP ?? data.declaredcashcop ?? 0);
     this.declaredCardCOP = Number(data.declaredCardCOP ?? data.declaredcardcop ?? 0);
     this.declaredTransfersCOP = Number(data.declaredTransfersCOP ?? data.declaredtransferscop ?? 0);
@@ -28,17 +29,19 @@ class ShiftAudit {
     const id = data.id || `shift-${Date.now()}`;
     const tenantId = data.tenantId || data.tenantid || 'tenant-default';
     const openedAt = data.openedAt || new Date().toISOString();
+    const initialCashCOP = Number(data.initialCashCOP ?? data.initialcashcop ?? 0);
 
     await db.query(`
       INSERT INTO shift_audits (
-        id, tenantId, shiftNumber, cashierId, cashierName, openedAt, status, notes
-      ) VALUES ($1, $2, $3, $4, $5, $6, 'OPEN', $7)
+        id, tenantId, shiftNumber, cashierId, cashierName, openedAt, initialCashCOP, status, notes
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'OPEN', $8)
       ON CONFLICT (id) DO UPDATE SET
         tenantId = EXCLUDED.tenantId,
         shiftNumber = EXCLUDED.shiftNumber,
         cashierId = EXCLUDED.cashierId,
         cashierName = EXCLUDED.cashierName,
         openedAt = EXCLUDED.openedAt,
+        initialCashCOP = EXCLUDED.initialCashCOP,
         notes = EXCLUDED.notes
     `, [
       id,
@@ -47,6 +50,7 @@ class ShiftAudit {
       data.cashierId,
       data.cashierName,
       openedAt,
+      initialCashCOP,
       data.notes || null
     ]);
 
@@ -87,25 +91,28 @@ class ShiftAudit {
     const tenantId = shift.tenantId || 'tenant-default';
     const closedAt = new Date().toISOString();
 
-    // Consultar ventas registradas durante el turno uniendo con invoices por tenantId
+    // Consultar pagos de facturas PAGADAS registradas durante el turno
     const res = await db.query(`
       SELECT p.method, SUM(p.amountCOP) as total
       FROM invoice_payments p
       JOIN invoices i ON p.invoiceId = i.id
-      WHERE p.createdAt >= $1 AND p.createdAt <= $2 AND i.tenantId = $3
+      WHERE p.createdAt >= $1 AND p.createdAt <= $2 AND i.tenantId = $3 AND i.status = 'PAID'
       GROUP BY p.method
     `, [shift.openedAt, closedAt, tenantId]);
 
-    let systemCash = 0;
+    let systemCashFromPayments = 0;
     let systemCard = 0;
     let systemTransfers = 0;
 
     for (const row of res.rows) {
       const amount = Number(row.total);
-      if (row.method === 'CASH') systemCash += amount;
+      if (row.method === 'CASH') systemCashFromPayments += amount;
       else if (row.method === 'CARD') systemCard += amount;
-      else if (row.method === 'NEQUI' || row.method === 'DAVIPLATA') systemTransfers += amount;
+      else if (row.method === 'NEQUI' || row.method === 'DAVIPLATA' || row.method === 'TRANSFER') systemTransfers += amount;
     }
+
+    const initialCash = Number(shift.initialCashCOP) || 0;
+    const systemCash = initialCash + systemCashFromPayments;
 
     const declaredCash = Number(declared.declaredCashCOP || 0);
     const declaredCard = Number(declared.declaredCardCOP || 0);
@@ -149,7 +156,12 @@ class ShiftAudit {
       shiftId
     ]);
 
-    return await ShiftAudit.findById(shiftId, db);
+    const closedShift = await ShiftAudit.findById(shiftId, db);
+    if (closedShift) {
+      closedShift.cashSalesCOP = systemCashFromPayments;
+      closedShift.initialCashCOP = initialCash;
+    }
+    return closedShift;
   }
 }
 

@@ -311,13 +311,48 @@ async function initSchema(db) {
       "ALTER TABLE invoices ADD COLUMN tenantId TEXT NOT NULL DEFAULT 'tenant-default'",
       "ALTER TABLE invoices ADD COLUMN saleType VARCHAR(20) NOT NULL DEFAULT 'TABLE'",
       "ALTER TABLE invoices ADD COLUMN customerNote TEXT",
-      "ALTER TABLE invoices ADD COLUMN cashierName VARCHAR(150)"
+      "ALTER TABLE invoices ADD COLUMN cashierName VARCHAR(150)",
+      // HERA v2.0 migraciones SQLite
+      "ALTER TABLE tenants ADD COLUMN planName VARCHAR(60) NOT NULL DEFAULT 'PRO'",
+      "ALTER TABLE tenants ADD COLUMN monthlyFeeCOP NUMERIC(14, 2) NOT NULL DEFAULT 0",
+      "ALTER TABLE tenants ADD COLUMN subscriptionEndsAt TIMESTAMPTZ",
+      "ALTER TABLE products ADD COLUMN trackStock BOOLEAN NOT NULL DEFAULT 0",
+      "ALTER TABLE products ADD COLUMN stockUnits INTEGER NOT NULL DEFAULT 0",
+      "ALTER TABLE products ADD COLUMN minStockUnits INTEGER NOT NULL DEFAULT 5",
+      "ALTER TABLE invoices ADD COLUMN cancelReason TEXT",
+      "ALTER TABLE invoices ADD COLUMN cancelledAt TIMESTAMPTZ",
+      "ALTER TABLE invoices ADD COLUMN cancelledBy VARCHAR(150)",
+      "ALTER TABLE shift_audits ADD COLUMN initialCashCOP NUMERIC(14, 2) NOT NULL DEFAULT 0"
     ];
     for (const alterSql of sqliteColumns) {
       try {
         await targetDb.exec(alterSql);
       } catch (_) {}
     }
+
+    // Migración CHECK de invoice_payments en SQLite si ya existía sin TRANSFER
+    try {
+      const res = await targetDb.query("SELECT sql FROM sqlite_master WHERE type='table' AND name='invoice_payments'");
+      const tblSql = res.rows[0]?.sql || '';
+      if (tblSql && !tblSql.includes('TRANSFER')) {
+        await targetDb.exec(`
+          PRAGMA foreign_keys = OFF;
+          CREATE TABLE invoice_payments_new (
+            id TEXT PRIMARY KEY,
+            invoiceId TEXT NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+            subAccountId TEXT,
+            method VARCHAR(20) NOT NULL CHECK(method IN ('CASH', 'CARD', 'NEQUI', 'DAVIPLATA', 'TRANSFER')),
+            amountCOP NUMERIC(14, 2) NOT NULL CHECK(amountCOP > 0),
+            reference TEXT,
+            createdAt TIMESTAMPTZ NOT NULL
+          );
+          INSERT INTO invoice_payments_new SELECT id, invoiceId, subAccountId, method, amountCOP, reference, createdAt FROM invoice_payments;
+          DROP TABLE invoice_payments;
+          ALTER TABLE invoice_payments_new RENAME TO invoice_payments;
+          PRAGMA foreign_keys = ON;
+        `);
+      }
+    } catch (_) {}
 
     await targetDb.exec('PRAGMA foreign_keys = ON;\n' + sql);
     return;
@@ -337,7 +372,18 @@ async function initSchema(db) {
       `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS tenantId TEXT NOT NULL DEFAULT 'tenant-default'`,
       `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS saleType VARCHAR(20) NOT NULL DEFAULT 'TABLE'`,
       `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS customerNote TEXT`,
-      `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS cashierName VARCHAR(150)`
+      `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS cashierName VARCHAR(150)`,
+      // HERA v2.0 migraciones PostgreSQL
+      `ALTER TABLE tenants ADD COLUMN IF NOT EXISTS planName VARCHAR(60) NOT NULL DEFAULT 'PRO'`,
+      `ALTER TABLE tenants ADD COLUMN IF NOT EXISTS monthlyFeeCOP NUMERIC(14, 2) NOT NULL DEFAULT 0`,
+      `ALTER TABLE tenants ADD COLUMN IF NOT EXISTS subscriptionEndsAt TIMESTAMPTZ`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS trackStock BOOLEAN NOT NULL DEFAULT FALSE`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS stockUnits INTEGER NOT NULL DEFAULT 0`,
+      `ALTER TABLE products ADD COLUMN IF NOT EXISTS minStockUnits INTEGER NOT NULL DEFAULT 5`,
+      `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS cancelReason TEXT`,
+      `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS cancelledAt TIMESTAMPTZ`,
+      `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS cancelledBy VARCHAR(150)`,
+      `ALTER TABLE shift_audits ADD COLUMN IF NOT EXISTS initialCashCOP NUMERIC(14, 2) NOT NULL DEFAULT 0`
     ];
 
     for (const q of alterQueries) {
@@ -351,10 +397,12 @@ async function initSchema(db) {
     // 2. Ejecutar esquema DDL principal
     await targetDb.query(sql);
 
-    // 3. Modificaciones de nulabilidad en columnas existentes
+    // 3. Modificaciones de nulabilidad y constraints en columnas existentes
     const constraintQueries = [
       `ALTER TABLE invoices ALTER COLUMN sessionId DROP NOT NULL`,
-      `ALTER TABLE invoices ALTER COLUMN tableId DROP NOT NULL`
+      `ALTER TABLE invoices ALTER COLUMN tableId DROP NOT NULL`,
+      `ALTER TABLE invoice_payments DROP CONSTRAINT IF EXISTS invoice_payments_method_check`,
+      `ALTER TABLE invoice_payments ADD CONSTRAINT invoice_payments_method_check CHECK (method IN ('CASH', 'CARD', 'NEQUI', 'DAVIPLATA', 'TRANSFER'))`
     ];
 
     for (const q of constraintQueries) {

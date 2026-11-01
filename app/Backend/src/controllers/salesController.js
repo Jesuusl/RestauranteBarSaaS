@@ -1,5 +1,9 @@
-const { getDatabase } = require('../config/database');
+const { getDatabase, withTransaction } = require('../config/database');
 const Tenant = require('../models/Tenant');
+const Invoice = require('../models/Invoice');
+const Product = require('../models/Product');
+const eventService = require('../services/eventService');
+const { EVENT_TYPES } = eventService;
 
 class SalesController {
   /**
@@ -15,6 +19,68 @@ class SalesController {
       return res.json(salesData.summary);
     } catch (err) {
       return res.status(500).json({ error: 'Error al obtener resumen de ventas: ' + err.message });
+    }
+  }
+
+  /**
+   * Anula una factura de venta, restaurando existencias de inventario simple si aplica.
+   * Excluye la venta de los ingresos pagados y cierres ciegos posteriores.
+   */
+  static async cancelSale(req, res) {
+    try {
+      const db = req.db || getDatabase();
+      const tenantId = req.tenantId || req.tenant?.id || 'tenant-default';
+      const { id } = req.params;
+      const { reason } = req.body;
+
+      if (!reason || typeof reason !== 'string' || reason.trim().length < 3) {
+        return res.status(400).json({ error: 'El motivo de anulación es obligatorio y debe tener al menos 3 caracteres.' });
+      }
+
+      const inv = await Invoice.findById(id, db);
+      if (!inv || inv.tenantId !== tenantId) {
+        return res.status(404).json({ error: 'Factura no encontrada.' });
+      }
+
+      if (inv.status === 'CANCELLED') {
+        return res.status(409).json({ error: 'La factura ya se encuentra anulada.' });
+      }
+
+      const isInventoryActive = !req.tenant || !req.tenant.enabledModules || req.tenant.enabledModules.inventory !== false;
+
+      const cancelledInvoice = await withTransaction(db, async (txDb) => {
+        const cancelledBy = req.user?.name || req.body.cancelledBy || 'Administrador';
+        const updated = await Invoice.cancel(id, { reason: reason.trim(), cancelledBy }, txDb);
+
+        // Restaurar inventario si el módulo está activo
+        if (isInventoryActive && updated.items && updated.items.length > 0) {
+          for (const it of updated.items) {
+            if (it.productId) {
+              const prod = await Product.findById(it.productId, txDb);
+              if (prod && prod.trackStock) {
+                await Product.restoreStock(it.productId, Number(it.quantity) || 1, txDb);
+              }
+            }
+          }
+        }
+
+        return updated;
+      });
+
+      eventService.broadcast(EVENT_TYPES.SALE_CANCELLED, {
+        invoiceId: id,
+        tenantId,
+        reason: reason.trim(),
+        cancelledBy: cancelledInvoice.cancelledBy
+      });
+
+      return res.json({
+        success: true,
+        message: 'Factura anulada exitosamente.',
+        invoice: cancelledInvoice
+      });
+    } catch (err) {
+      return res.status(500).json({ error: 'Error al anular la factura: ' + err.message });
     }
   }
 
@@ -44,11 +110,12 @@ class SalesController {
   }
 
   /**
-   * Consulta centralizada de facturas pagadas e ítems asociados para el tenant y rango de fechas.
+   * Consulta centralizada de facturas e ítems asociados para el tenant y rango de fechas.
+   * Los KPIs (ingresos, ranking, productos vendidos) se calculan EXCLUSIVAMENTE sobre facturas PAID.
    * @private
    */
   static async _fetchSalesData(db, tenantId, from, to) {
-    const conditions = ["tenantId = $1", "status = 'PAID'"];
+    const conditions = ["tenantId = $1", "status IN ('PAID', 'CANCELLED')"];
     const params = [tenantId];
 
     if (from) {
@@ -72,14 +139,20 @@ class SalesController {
       CASH: 0,
       CARD: 0,
       NEQUI: 0,
-      DAVIPLATA: 0
+      DAVIPLATA: 0,
+      TRANSFER: 0
     };
 
     let totalProductsSold = 0;
     let totalRevenueCOP = 0;
+    let paidSalesCount = 0;
+    let cancelledCount = 0;
+    let cancelledTotalCOP = 0;
 
     for (const rawInv of invRes.rows) {
       const invId = rawInv.id;
+      const isPaid = (rawInv.status === 'PAID');
+      const invTotalCOP = Number(rawInv.totalCOP ?? rawInv.totalcop ?? 0);
 
       // 1. Obtener pagos
       const payRes = await db.query('SELECT * FROM invoice_payments WHERE invoiceId = $1', [invId]);
@@ -90,14 +163,6 @@ class SalesController {
         reference: p.reference || null,
         createdAt: p.createdAt || p.createdat
       }));
-
-      for (const p of payments) {
-        if (paymentBreakdown[p.method] !== undefined) {
-          paymentBreakdown[p.method] += p.amountCOP;
-        } else {
-          paymentBreakdown[p.method] = (paymentBreakdown[p.method] || 0) + p.amountCOP;
-        }
-      }
 
       // 2. Obtener items desde invoice_items
       let items = [];
@@ -134,35 +199,55 @@ class SalesController {
         }));
       }
 
-      // Acumular cantidades e ítems
       let invoiceItemsCount = 0;
-      for (const it of items) {
-        const qty = Number(it.quantity) || 0;
-        const subtotal = Number(it.subtotalCOP) || 0;
-        invoiceItemsCount += qty;
-        totalProductsSold += qty;
 
-        const prodKey = it.productId || it.productName;
-        if (!productAggregates.has(prodKey)) {
-          productAggregates.set(prodKey, {
-            productId: it.productId,
-            productName: it.productName,
-            category: it.category || 'General',
-            quantitySold: 0,
-            revenueCOP: 0
-          });
+      if (isPaid) {
+        paidSalesCount++;
+        totalRevenueCOP += invTotalCOP;
+
+        // Acumular desglose de medios de pago solo para facturas válidas (PAID)
+        for (const p of payments) {
+          if (paymentBreakdown[p.method] !== undefined) {
+            paymentBreakdown[p.method] += p.amountCOP;
+          } else {
+            paymentBreakdown[p.method] = (paymentBreakdown[p.method] || 0) + p.amountCOP;
+          }
         }
-        const agg = productAggregates.get(prodKey);
-        agg.quantitySold += qty;
-        agg.revenueCOP += subtotal;
-      }
 
-      const invTotalCOP = Number(rawInv.totalCOP ?? rawInv.totalcop ?? 0);
-      totalRevenueCOP += invTotalCOP;
+        // Acumular cantidades e ítems para métricas y ranking
+        for (const it of items) {
+          const qty = Number(it.quantity) || 0;
+          const subtotal = Number(it.subtotalCOP) || 0;
+          invoiceItemsCount += qty;
+          totalProductsSold += qty;
+
+          const prodKey = it.productId || it.productName;
+          if (!productAggregates.has(prodKey)) {
+            productAggregates.set(prodKey, {
+              productId: it.productId,
+              productName: it.productName,
+              category: it.category || 'General',
+              quantitySold: 0,
+              revenueCOP: 0
+            });
+          }
+          const agg = productAggregates.get(prodKey);
+          agg.quantitySold += qty;
+          agg.revenueCOP += subtotal;
+        }
+      } else {
+        cancelledCount++;
+        cancelledTotalCOP += invTotalCOP;
+        invoiceItemsCount = items.reduce((acc, it) => acc + (Number(it.quantity) || 0), 0);
+      }
 
       sales.push({
         id: rawInv.id,
         createdAt: rawInv.createdAt || rawInv.createdat,
+        status: rawInv.status,
+        cancelReason: rawInv.cancelReason || rawInv.cancelreason || null,
+        cancelledAt: rawInv.cancelledAt || rawInv.cancelledat || null,
+        cancelledBy: rawInv.cancelledBy || rawInv.cancelledby || null,
         saleType: rawInv.saleType || rawInv.saletype || 'TABLE',
         tableId: rawInv.tableId || rawInv.tableid || null,
         cashierName: rawInv.cashierName || rawInv.cashiername || null,
@@ -172,16 +257,16 @@ class SalesController {
         tipCOP: Number(rawInv.tipCOP ?? rawInv.tipcop ?? 0),
         totalCOP: invTotalCOP,
         itemsCount: invoiceItemsCount,
-        paymentMethod: payments[0]?.method || 'CASH',
+        paymentMethod: payments.length > 1 ? 'MIXED' : (payments[0]?.method || 'CASH'),
         payments,
         items
       });
     }
 
-    const totalSalesCount = sales.length;
+    const totalSalesCount = paidSalesCount;
     const averageTicketCOP = totalSalesCount > 0 ? Math.round(totalRevenueCOP / totalSalesCount) : 0;
 
-    // Generar ranking de productos
+    // Generar ranking de productos exclusivamente de ventas pagadas
     const productRankingList = Array.from(productAggregates.values())
       .sort((a, b) => b.quantitySold - a.quantitySold || b.revenueCOP - a.revenueCOP);
 
@@ -204,6 +289,8 @@ class SalesController {
         totalSalesCount,
         totalRevenueCOP,
         averageTicketCOP,
+        cancelledCount,
+        cancelledTotalCOP,
         topProduct,
         productRanking,
         paymentBreakdown,
@@ -214,6 +301,7 @@ class SalesController {
 
   /**
    * Genera el contenido de texto CSV escapando comillas y delimitando por comas.
+   * Incluye las nuevas columnas Estado y Motivo_Anulacion al final para compatibilidad.
    * @private
    */
   static _generateCsv(sales) {
@@ -229,7 +317,9 @@ class SalesController {
       'Subtotal_COP',
       'Impoconsumo_COP',
       'Propina_COP',
-      'Valor_Total_COP'
+      'Valor_Total_COP',
+      'Estado',
+      'Motivo_Anulacion'
     ];
 
     const lines = [headers.join(',')];
@@ -248,9 +338,10 @@ class SalesController {
       }
 
       // Detalle de productos compacto (ej. "2x Café Latte; 1x Empanada")
-      const productsSummary = s.items.map(it => `${it.quantity}x ${it.productName}`).join('; ');
+      const productsSummary = (s.items || []).map(it => `${it.quantity}x ${it.productName}`).join('; ');
       const escapedProducts = `"${productsSummary.replace(/"/g, '""')}"`;
       const escapedCashier = `"${(s.cashierName || 'Caja Principal').replace(/"/g, '""')}"`;
+      const escapedReason = `"${(s.cancelReason || '').replace(/"/g, '""')}"`;
 
       const row = [
         s.id,
@@ -264,7 +355,9 @@ class SalesController {
         s.subtotalCOP,
         s.impoconsumoCOP,
         s.tipCOP,
-        s.totalCOP
+        s.totalCOP,
+        s.status || 'PAID',
+        escapedReason
       ];
 
       lines.push(row.join(','));
@@ -275,3 +368,4 @@ class SalesController {
 }
 
 module.exports = SalesController;
+

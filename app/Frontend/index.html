@@ -224,63 +224,88 @@
     <!-- Cuerpo del Panel CEO -->
     <main class="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-6 space-y-6">
       
-      <!-- Fila de 4 KPIs Globales SaaS -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- KPI 1 -->
-        <div class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-            <span class="text-xs font-semibold uppercase tracking-wider">Restaurantes Registrados</span>
-            <span class="text-xl p-2 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400">🏢</span>
+      <!-- Fila de 5 KPIs Globales SaaS -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+        <!-- KPI 1: Registrados -->
+        <div class="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1.5">
+            <span class="text-xs font-semibold uppercase tracking-wider">Negocios Registrados</span>
+            <span class="text-lg p-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400">🏢</span>
           </div>
-          <div id="ceo-kpi-total-tenants" class="text-2xl sm:text-3xl font-extrabold font-display text-slate-900 dark:text-white">0</div>
-          <div class="text-xs text-slate-400 dark:text-slate-500 mt-1">Inquilinos en plataforma</div>
+          <div id="ceo-kpi-total-tenants" class="text-2xl font-extrabold font-display text-slate-900 dark:text-white">0</div>
+          <div class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Inquilinos en red</div>
         </div>
 
-        <!-- KPI 2 -->
-        <div class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-            <span class="text-xs font-semibold uppercase tracking-wider">Restaurantes Activos</span>
-            <span class="text-xl p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400">🟢</span>
+        <!-- KPI 2: Activos -->
+        <div class="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1.5">
+            <span class="text-xs font-semibold uppercase tracking-wider">Activos / Operando</span>
+            <span class="text-lg p-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400">🟢</span>
           </div>
-          <div id="ceo-kpi-active-tenants" class="text-2xl sm:text-3xl font-extrabold font-display text-emerald-600 dark:text-emerald-400">0</div>
-          <div class="text-xs text-slate-400 dark:text-slate-500 mt-1">Operando en línea</div>
+          <div id="ceo-kpi-active-tenants" class="text-2xl font-extrabold font-display text-emerald-600 dark:text-emerald-400">0</div>
+          <div class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Operando en línea</div>
         </div>
 
-        <!-- KPI 3 -->
-        <div class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-            <span class="text-xs font-semibold uppercase tracking-wider">Transacciones Globales</span>
-            <span class="text-xl p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">🧾</span>
+        <!-- KPI 3: MRR Mensual -->
+        <div class="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1.5">
+            <span class="text-xs font-semibold uppercase tracking-wider">MRR Mensual SaaS</span>
+            <span class="text-lg p-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">📈</span>
           </div>
-          <div id="ceo-kpi-total-sales" class="text-2xl sm:text-3xl font-extrabold font-display text-slate-900 dark:text-white">0</div>
-          <div class="text-xs text-slate-400 dark:text-slate-500 mt-1">Ventas totales acumuladas</div>
+          <div id="ceo-kpi-mrr" class="text-2xl font-extrabold font-mono text-indigo-600 dark:text-indigo-400">$ 0 COP</div>
+          <div class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Ingresos recurrentes</div>
         </div>
 
-        <!-- KPI 4 -->
-        <div class="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-            <span class="text-xs font-semibold uppercase tracking-wider">Volumen Facturado COP</span>
-            <span class="text-xl p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400">💰</span>
+        <!-- KPI 4: Por Vencer / Vencidos -->
+        <div class="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1.5">
+            <span class="text-xs font-semibold uppercase tracking-wider">Por Vencer / Vencidos</span>
+            <span class="text-lg p-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400">⚠️</span>
           </div>
-          <div id="ceo-kpi-total-revenue" class="text-2xl sm:text-3xl font-extrabold font-mono text-indigo-600 dark:text-indigo-400">$ 0 COP</div>
-          <div class="text-xs text-slate-400 dark:text-slate-500 mt-1">Ventas globales de la red</div>
+          <div id="ceo-kpi-expiring" class="text-2xl font-extrabold font-display text-amber-600 dark:text-amber-400">0</div>
+          <div class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Atención requerida</div>
+        </div>
+
+        <!-- KPI 5: Facturación Global Clientes -->
+        <div class="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1.5">
+            <span class="text-xs font-semibold uppercase tracking-wider">Facturación Global</span>
+            <span class="text-lg p-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400">💰</span>
+          </div>
+          <div id="ceo-kpi-global-revenue" class="text-2xl font-extrabold font-mono text-purple-600 dark:text-purple-400">$ 0 COP</div>
+          <div id="ceo-kpi-total-revenue" class="hidden"></div>
+          <div id="ceo-kpi-total-sales" class="hidden"></div>
+          <div class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Ventas de los negocios</div>
         </div>
       </div>
 
       <!-- Barra de Filtros y Búsqueda de Inquilinos -->
-      <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div class="relative w-full sm:max-w-md">
+      <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3">
+        <div class="relative w-full md:max-w-xs">
           <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">🔍</span>
           <input type="text" id="ceo-search-input" placeholder="Buscar por nombre, NIT, email o subdominio..." class="w-full pl-9 pr-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
         </div>
 
-        <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
-          <label for="ceo-filter-type" class="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Modalidad:</label>
-          <select id="ceo-filter-type" class="px-3 py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500">
-            <option value="ALL">Todas las Modalidades</option>
-            <option value="EXPRESS_COUNTER">⚡ Punto Express (Mostrador)</option>
-            <option value="RESTAURANT">🍽️ Restaurante Completo (Mesas)</option>
-          </select>
+        <div class="flex items-center gap-2 w-full md:w-auto justify-end flex-wrap">
+          <div class="flex items-center gap-1.5">
+            <label for="ceo-filter-type" class="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Modalidad:</label>
+            <select id="ceo-filter-type" class="px-2.5 py-1.5 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500">
+              <option value="ALL">Todas</option>
+              <option value="EXPRESS_COUNTER">⚡ Punto Express</option>
+              <option value="RESTAURANT">🍽️ Restaurante</option>
+            </select>
+          </div>
+
+          <div class="flex items-center gap-1.5">
+            <label for="ceo-filter-sub" class="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Suscripción:</label>
+            <select id="ceo-filter-sub" class="px-2.5 py-1.5 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500">
+              <option value="ALL">Todas</option>
+              <option value="ACTIVE">🟢 Al día</option>
+              <option value="EXPIRING_SOON">⚠️ Por vencer (≤5d)</option>
+              <option value="EXPIRED">🚨 Vencidas</option>
+              <option value="SUSPENDED">⛔ Suspendidas</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -420,6 +445,12 @@
           <span class="text-base">🔒</span>
           <span>Cierre</span>
         </button>
+
+        <!-- 9. Inventario Simple -->
+        <button id="nav-btn-inventory" class="nav-tab-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 whitespace-nowrap bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 shadow-sm hover:border-indigo-400" data-module="inventory" data-view="view-inventory">
+          <span class="text-base">📦</span>
+          <span>Inventario</span>
+        </button>
       </nav>
     </header>
 
@@ -538,7 +569,7 @@
               <!-- Selector Táctil de Medio de Pago -->
               <div class="space-y-1.5">
                 <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Medio de Pago</span>
-                <div id="express-payment-methods" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div id="express-payment-methods" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   <button type="button" class="express-pay-method active p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-center transition flex flex-col items-center gap-1" data-method="CASH">
                     <span class="text-base">💵</span>
                     <span>Efectivo</span>
@@ -554,6 +585,14 @@
                   <button type="button" class="express-pay-method p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-center transition flex flex-col items-center gap-1" data-method="DAVIPLATA">
                     <span class="text-base">📲</span>
                     <span>Daviplata</span>
+                  </button>
+                  <button type="button" class="express-pay-method p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-center transition flex flex-col items-center gap-1" data-method="TRANSFER">
+                    <span class="text-base">🏦</span>
+                    <span>Transferencia</span>
+                  </button>
+                  <button type="button" id="btn-express-open-mixed" class="p-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-xs font-bold text-center transition hover:bg-indigo-100 dark:hover:bg-indigo-900/50 flex flex-col items-center gap-1">
+                    <span class="text-base">🔀</span>
+                    <span>Pago Mixto</span>
                   </button>
                 </div>
               </div>
@@ -1069,7 +1108,7 @@
             <!-- Medios de Pago -->
             <div class="space-y-1.5">
               <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500">Medio de Pago</label>
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <button type="button" class="btn-payment-method active p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-center transition flex flex-col items-center gap-1" data-method="CASH">
                   <span class="text-base">💵</span> <span>Efectivo</span>
                 </button>
@@ -1081,6 +1120,12 @@
                 </button>
                 <button type="button" class="btn-payment-method p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-center transition flex flex-col items-center gap-1" data-method="DAVIPLATA">
                   <span class="text-base">📲</span> <span>Daviplata</span>
+                </button>
+                <button type="button" class="btn-payment-method p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-center transition flex flex-col items-center gap-1" data-method="TRANSFER">
+                  <span class="text-base">🏦</span> <span>Transferencia</span>
+                </button>
+                <button type="button" id="btn-billing-open-mixed" class="p-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-xs font-bold text-center transition hover:bg-indigo-100 dark:hover:bg-indigo-900/50 flex flex-col items-center gap-1">
+                  <span class="text-base">🔀</span> <span>Pago Mixto</span>
                 </button>
               </div>
             </div>
@@ -1154,7 +1199,10 @@
         <!-- Banner de Turno Activo -->
         <div id="shift-active-banner" class="p-4 sm:p-5 rounded-3xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 class="text-sm sm:text-base font-bold font-display text-indigo-950 dark:text-indigo-200">Turno Operativo de Caja</h3>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 class="text-sm sm:text-base font-bold font-display text-indigo-950 dark:text-indigo-200">Turno Operativo de Caja</h3>
+              <span id="shift-active-base" class="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-indigo-100 dark:bg-indigo-900/70 text-indigo-700 dark:text-indigo-300">Base: $ 0 COP</span>
+            </div>
             <p class="text-xs text-indigo-700 dark:text-indigo-400">Registra y controla el efectivo físico sin sesgos ni descuadres</p>
           </div>
           <button type="button" id="btn-open-shift" class="hidden px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow transition">
@@ -1211,6 +1259,112 @@
             <div id="audit-results-content">
               <!-- Renderizado dinámico tras el arqueo -->
             </div>
+          </div>
+        </div>
+
+      </section>
+
+
+      <!-- ==================================================================
+           VISTA 9: #view-inventory (📦 CONTROL DE INVENTARIO Y STOCK SIMPLE)
+           ================================================================== -->
+      <section id="view-inventory" data-module="inventory" class="app-view hidden space-y-6">
+        
+        <!-- Header del Módulo de Inventario y KPIs -->
+        <div class="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-2xl">📦</span>
+                <h2 class="text-xl sm:text-2xl font-bold font-display text-slate-900 dark:text-white">Control de Inventario</h2>
+              </div>
+              <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Control de existencias simples, alertas de stock mínimo y ajustes rápidos por producto</p>
+            </div>
+
+            <!-- Botones de Acción Superior -->
+            <div class="flex items-center gap-2">
+              <button type="button" id="btn-refresh-stock" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2">
+                <span class="text-base">🔄</span>
+                <span>Actualizar</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Cuadrícula de KPIs Rápidos de Inventario -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <!-- KPI 1: Monitoreados -->
+            <div class="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50">
+              <span class="block text-[11px] font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider">Productos en Control</span>
+              <div id="stock-kpi-tracked" class="text-2xl font-extrabold font-display text-indigo-900 dark:text-indigo-200 mt-1">0</div>
+              <span class="text-[11px] text-indigo-600/80 dark:text-indigo-400/80">Con seguimiento activo</span>
+            </div>
+
+            <!-- KPI 2: Stock Crítico / Bajo -->
+            <div class="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/50">
+              <span class="block text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Stock Crítico / Bajo</span>
+              <div id="stock-kpi-low" class="text-2xl font-extrabold font-display text-amber-900 dark:text-amber-200 mt-1">0</div>
+              <span class="text-[11px] text-amber-600/80 dark:text-amber-400/80">Existencias &le; Stock mínimo</span>
+            </div>
+
+            <!-- KPI 3: Agotados -->
+            <div class="p-4 rounded-2xl bg-rose-50/70 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/50">
+              <span class="block text-[11px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider">Agotados (0 Unidades)</span>
+              <div id="stock-kpi-out" class="text-2xl font-extrabold font-display text-rose-900 dark:text-rose-200 mt-1">0</div>
+              <span class="text-[11px] text-rose-600/80 dark:text-rose-400/80">Bloqueados para comanda</span>
+            </div>
+          </div>
+
+          <!-- Barra de Búsqueda y Filtros Rápidos -->
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div class="relative flex-1 max-w-md">
+              <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">🔍</span>
+              <input type="text" id="stock-search-input" placeholder="Buscar por nombre o categoría..." class="w-full pl-9 pr-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+
+            <!-- Filtros por Estado de Stock -->
+            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              <button type="button" class="stock-filter-btn active px-3 py-1.5 rounded-xl text-xs font-bold transition bg-slate-900 text-white dark:bg-white dark:text-slate-900" data-stock-filter="ALL">
+                Todos
+              </button>
+              <button type="button" class="stock-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold transition bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300" data-stock-filter="LOW">
+                ⚠️ Bajo Stock
+              </button>
+              <button type="button" class="stock-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold transition bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300" data-stock-filter="OUT">
+                🚫 Agotados
+              </button>
+              <button type="button" class="stock-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold transition bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300" data-stock-filter="UNTRACKED">
+                ⚪ Sin Control
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabla Responsiva de Inventario -->
+        <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th scope="col" class="py-3 px-4">Producto & Categoría</th>
+                  <th scope="col" class="py-3 px-3 text-center">Seguimiento</th>
+                  <th scope="col" class="py-3 px-4 text-center">Existencias</th>
+                  <th scope="col" class="py-3 px-4 text-center">Stock Mínimo</th>
+                  <th scope="col" class="py-3 px-4 text-center">Estado</th>
+                  <th scope="col" class="py-3 px-4 text-right">Ajuste Rápido</th>
+                </tr>
+              </thead>
+              <tbody id="stock-products-tbody" class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200 font-medium">
+                <tr>
+                  <td colspan="6" class="py-8 text-center text-slate-400">
+                    Cargando inventario de productos...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="stock-empty-state" class="hidden py-12 text-center text-slate-400 space-y-2">
+            <span class="text-3xl block">📦</span>
+            <p class="font-medium text-sm">No se encontraron productos con el filtro aplicado.</p>
           </div>
         </div>
 
@@ -1281,6 +1435,49 @@
           </div>
         </div>
 
+        <!-- Plan y Suscripción SaaS (HERA v2.0) -->
+        <div class="p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-900/50 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="block text-xs font-bold text-indigo-900 dark:text-indigo-200 uppercase tracking-wider">Plan & Suscripción SaaS</span>
+            <span class="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">Control de Facturación HERA</span>
+          </div>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label for="tenant-input-plan" class="block text-[10px] text-slate-600 dark:text-slate-400 font-semibold mb-0.5">Plan Contratado</label>
+              <select id="tenant-input-plan" class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+                <option value="TRIAL">🎁 Demo / Prueba (Trial)</option>
+                <option value="BASIC">⚡ Básico ($ 89.000 COP/mes)</option>
+                <option value="PRO" selected>⭐ Profesional ($ 149.000 COP/mes)</option>
+                <option value="ENTERPRISE">🏢 Enterprise ($ 299.000 COP/mes)</option>
+              </select>
+            </div>
+            <div>
+              <label for="tenant-input-monthly-fee" class="block text-[10px] text-slate-600 dark:text-slate-400 font-semibold mb-0.5">Tarifa Mensual (COP)</label>
+              <input type="number" id="tenant-input-monthly-fee" placeholder="149000" min="0" step="1000" class="w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label for="tenant-input-sub-ends" class="block text-[10px] text-slate-600 dark:text-slate-400 font-semibold">Fecha Límite de Suscripción</label>
+              <!-- Botones de Extensión Rápida -->
+              <div class="flex items-center gap-1">
+                <button type="button" id="btn-sub-quick-30d" class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900 dark:hover:bg-indigo-800 text-indigo-700 dark:text-indigo-300 transition">
+                  +30 Días
+                </button>
+                <button type="button" id="btn-sub-quick-90d" class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900 dark:hover:bg-indigo-800 text-indigo-700 dark:text-indigo-300 transition">
+                  +90 Días
+                </button>
+                <button type="button" id="btn-sub-quick-365d" class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900 dark:hover:bg-indigo-800 text-indigo-700 dark:text-indigo-300 transition">
+                  +1 Año
+                </button>
+              </div>
+            </div>
+            <input type="date" id="tenant-input-sub-ends" class="w-full px-2.5 py-1.5 text-xs font-mono rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+          </div>
+        </div>
+
         <!-- Reglas Fiscales -->
         <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
           <label class="flex items-center gap-2 cursor-pointer">
@@ -1296,7 +1493,7 @@
         <!-- Módulos Habilitados -->
         <div class="space-y-1.5">
           <span class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Módulos Habilitados</span>
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
             <label class="flex items-center gap-1.5 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 cursor-pointer">
               <input type="checkbox" data-tenant-mod="express_pos" checked class="rounded text-purple-600">
               <span>⚡ Cobro Rápido</span>
@@ -1328,6 +1525,10 @@
             <label class="flex items-center gap-1.5 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 cursor-pointer">
               <input type="checkbox" data-tenant-mod="shifts" checked class="rounded text-purple-600">
               <span>🔒 Cierre</span>
+            </label>
+            <label class="flex items-center gap-1.5 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 cursor-pointer">
+              <input type="checkbox" data-tenant-mod="inventory" checked class="rounded text-purple-600">
+              <span>🏷️ Inventario</span>
             </label>
           </div>
         </div>
@@ -1525,6 +1726,25 @@
           </div>
         </div>
 
+        <!-- Control de Stock / Existencias (HERA v2.0) -->
+        <div id="product-form-stock-box" class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2.5">
+          <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-800 dark:text-slate-200">
+            <input type="checkbox" id="product-form-track-stock" class="rounded text-indigo-600 focus:ring-indigo-500">
+            <span>Controlar inventario y existencias de este producto</span>
+          </label>
+
+          <div id="product-form-stock-fields" class="hidden grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+            <div>
+              <label for="product-form-stock-units" class="block text-[10px] text-slate-600 dark:text-slate-400 font-semibold mb-0.5">Stock Actual (Unid.)</label>
+              <input type="number" id="product-form-stock-units" min="0" step="1" placeholder="Ej: 25" class="w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+            </div>
+            <div>
+              <label for="product-form-min-stock" class="block text-[10px] text-slate-600 dark:text-slate-400 font-semibold mb-0.5">Stock Mínimo Alerta</label>
+              <input type="number" id="product-form-min-stock" min="0" step="1" placeholder="Ej: 5" class="w-full px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
+            </div>
+          </div>
+        </div>
+
         <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
           <button type="button" class="px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-300 dark:border-slate-700" data-close-modal="modal-product-form">Cancelar</button>
           <button type="submit" id="btn-save-product" class="px-4 py-1.5 text-xs font-bold rounded-xl bg-indigo-600 text-white shadow">💾 Guardar Producto</button>
@@ -1560,6 +1780,256 @@
           </button>
           <button type="submit" id="btn-save-backend-url" class="px-4 py-1.5 text-xs font-bold rounded-xl bg-indigo-600 text-white shadow">
             💾 Guardar y Conectar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- MODAL 8: Desglose de Pago Mixto / Combinado (HERA v2.0) -->
+  <div id="modal-mixed-payment" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <div class="w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-5 animate-fade-in-scale max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+        <div>
+          <h3 class="text-base font-bold font-display text-slate-900 dark:text-white flex items-center gap-1.5">
+            <span>🔀</span> <span>Pago Combinado / Mixto</span>
+          </h3>
+          <p class="text-xs text-slate-400">Distribuye el importe entre múltiples métodos de cobro</p>
+        </div>
+        <button type="button" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg leading-none" data-close-modal="modal-mixed-payment">&times;</button>
+      </div>
+
+      <!-- Resumen de montos -->
+      <div class="grid grid-cols-3 gap-2.5 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
+        <div>
+          <span class="block text-[10px] font-semibold text-slate-500 uppercase">Total a Cubrir</span>
+          <div id="mixed-modal-total-target" class="text-sm sm:text-base font-extrabold font-mono text-slate-900 dark:text-white">$ 0 COP</div>
+        </div>
+        <div>
+          <span class="block text-[10px] font-semibold text-slate-500 uppercase">Asignado</span>
+          <div id="mixed-modal-total-assigned" class="text-sm sm:text-base font-extrabold font-mono text-indigo-600 dark:text-indigo-400">$ 0 COP</div>
+        </div>
+        <div>
+          <span class="block text-[10px] font-semibold text-slate-500 uppercase">Diferencia</span>
+          <div id="mixed-modal-balance-due" class="text-sm sm:text-base font-extrabold font-mono text-rose-600 dark:text-rose-400">$ 0 COP</div>
+        </div>
+      </div>
+
+      <!-- Entradas por método -->
+      <div class="space-y-2.5 text-xs">
+        <!-- Efectivo -->
+        <div class="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="text-base">💵</span>
+            <span class="font-bold text-slate-700 dark:text-slate-300">Efectivo</span>
+          </div>
+          <div class="flex items-center gap-1.5 w-48">
+            <input type="number" id="mixed-amount-cash" min="0" step="100" placeholder="0" class="mixed-input w-full px-2.5 py-1.5 text-right font-mono font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white">
+            <button type="button" class="btn-fill-remaining px-2 py-1 text-[10px] font-bold rounded bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 text-slate-700 dark:text-slate-200" data-target-input="mixed-amount-cash">Resto</button>
+          </div>
+        </div>
+
+        <!-- Tarjeta / Datáfono -->
+        <div class="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="text-base">💳</span>
+            <span class="font-bold text-slate-700 dark:text-slate-300">Tarjeta / Datáfono</span>
+          </div>
+          <div class="flex items-center gap-1.5 w-48">
+            <input type="number" id="mixed-amount-card" min="0" step="100" placeholder="0" class="mixed-input w-full px-2.5 py-1.5 text-right font-mono font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white">
+            <button type="button" class="btn-fill-remaining px-2 py-1 text-[10px] font-bold rounded bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 text-slate-700 dark:text-slate-200" data-target-input="mixed-amount-card">Resto</button>
+          </div>
+        </div>
+
+        <!-- Nequi -->
+        <div class="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="text-base">📱</span>
+            <span class="font-bold text-slate-700 dark:text-slate-300">Nequi</span>
+          </div>
+          <div class="flex items-center gap-1.5 w-48">
+            <input type="number" id="mixed-amount-nequi" min="0" step="100" placeholder="0" class="mixed-input w-full px-2.5 py-1.5 text-right font-mono font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white">
+            <button type="button" class="btn-fill-remaining px-2 py-1 text-[10px] font-bold rounded bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 text-slate-700 dark:text-slate-200" data-target-input="mixed-amount-nequi">Resto</button>
+          </div>
+        </div>
+
+        <!-- Daviplata -->
+        <div class="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="text-base">📲</span>
+            <span class="font-bold text-slate-700 dark:text-slate-300">Daviplata</span>
+          </div>
+          <div class="flex items-center gap-1.5 w-48">
+            <input type="number" id="mixed-amount-daviplata" min="0" step="100" placeholder="0" class="mixed-input w-full px-2.5 py-1.5 text-right font-mono font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white">
+            <button type="button" class="btn-fill-remaining px-2 py-1 text-[10px] font-bold rounded bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 text-slate-700 dark:text-slate-200" data-target-input="mixed-amount-daviplata">Resto</button>
+          </div>
+        </div>
+
+        <!-- Transferencia -->
+        <div class="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="text-base">🏦</span>
+            <span class="font-bold text-slate-700 dark:text-slate-300">Transferencia Bancaria</span>
+          </div>
+          <div class="flex items-center gap-1.5 w-48">
+            <input type="number" id="mixed-amount-transfer" min="0" step="100" placeholder="0" class="mixed-input w-full px-2.5 py-1.5 text-right font-mono font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white">
+            <button type="button" class="btn-fill-remaining px-2 py-1 text-[10px] font-bold rounded bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 text-slate-700 dark:text-slate-200" data-target-input="mixed-amount-transfer">Resto</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+        <button type="button" class="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300" data-close-modal="modal-mixed-payment">Cancelar</button>
+        <button type="button" id="btn-confirm-mixed-payment" disabled class="px-5 py-2.5 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-md shadow-indigo-600/30 transition">
+          ⚡ Confirmar y Procesar Pago
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MODAL 9: Anulación de Venta con Motivo Auditoría (HERA v2.0) -->
+  <div id="modal-cancel-sale" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <div class="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-rose-200 dark:border-rose-900/50 p-6 space-y-4 animate-fade-in-scale">
+      <div class="flex items-center justify-between pb-2 border-b border-rose-100 dark:border-rose-900/40">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🚫</span>
+          <div>
+            <h3 class="text-base font-bold font-display text-rose-600 dark:text-rose-400">Anulación de Venta</h3>
+            <p class="text-[11px] text-slate-400">Esta acción revertirá la transacción en informes y caja</p>
+          </div>
+        </div>
+        <button type="button" class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg leading-none" data-close-modal="modal-cancel-sale">&times;</button>
+      </div>
+
+      <input type="hidden" id="cancel-sale-target-id">
+
+      <!-- Ficha de la venta a anular -->
+      <div class="p-3 rounded-2xl bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/40 space-y-1">
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-slate-600 dark:text-slate-400 font-semibold">Comprobante / ID:</span>
+          <span id="cancel-sale-id-display" class="font-mono font-bold text-slate-900 dark:text-white">--</span>
+        </div>
+        <div class="flex items-center justify-between text-xs">
+          <span class="text-slate-600 dark:text-slate-400 font-semibold">Total / Info:</span>
+          <span id="cancel-sale-info-display" class="font-mono font-bold text-rose-600 dark:text-rose-400">--</span>
+        </div>
+      </div>
+
+      <div>
+        <label for="cancel-sale-reason" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+          Motivo Obligatorio de Anulación:
+        </label>
+        <textarea id="cancel-sale-reason" rows="3" required placeholder="Ej: Error de digitación en mostrador, cliente solicitó devolución, cambio de método de pago..." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500"></textarea>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+        <button type="button" class="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300" data-close-modal="modal-cancel-sale">
+          Cancelar
+        </button>
+        <button type="button" id="btn-confirm-cancel-sale" class="px-4 py-2 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/30 transition flex items-center gap-1.5">
+          <span>🚫</span>
+          <span>Confirmar Anulación</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MODAL 10: Apertura de Turno de Caja (HERA v2.0 - Reemplazo de prompt) -->
+  <div id="modal-open-shift" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <div class="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4 animate-fade-in-scale">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🔓</span>
+          <div>
+            <h3 class="text-base font-bold font-display text-slate-900 dark:text-white">Abrir Nuevo Turno</h3>
+            <p class="text-[11px] text-slate-400">Registra base inicial física de apertura</p>
+          </div>
+        </div>
+        <button type="button" class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg leading-none" data-close-modal="modal-open-shift">&times;</button>
+      </div>
+
+      <form id="form-open-shift-modal" class="space-y-3" onsubmit="return false;">
+        <div>
+          <label for="open-shift-cashier-name" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Nombre del Cajero / Responsable:</label>
+          <input type="text" id="open-shift-cashier-name" value="Cajero de Turno" required class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white">
+        </div>
+
+        <div>
+          <label for="open-shift-initial-cash" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Base Inicial en Caja (COP):</label>
+          <input type="number" id="open-shift-initial-cash" min="0" step="500" value="100000" placeholder="Ej: 100000" required class="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white">
+          <div class="grid grid-cols-4 gap-1.5 mt-2">
+            <button type="button" class="btn-quick-shift-base py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[10px] font-mono font-bold text-slate-700 dark:text-slate-300 transition" data-base-amount="0">$ 0</button>
+            <button type="button" class="btn-quick-shift-base py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[10px] font-mono font-bold text-slate-700 dark:text-slate-300 transition" data-base-amount="50000">$ 50k</button>
+            <button type="button" class="btn-quick-shift-base py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[10px] font-mono font-bold text-slate-700 dark:text-slate-300 transition" data-base-amount="100000">$ 100k</button>
+            <button type="button" class="btn-quick-shift-base py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[10px] font-mono font-bold text-slate-700 dark:text-slate-300 transition" data-base-amount="200000">$ 200k</button>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-1">Efectivo físico recibido para devueltas y cambio.</p>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+          <button type="button" class="px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-300 dark:border-slate-700" data-close-modal="modal-open-shift">Cancelar</button>
+          <button type="button" id="btn-confirm-open-shift" class="px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/30 transition">
+            🚀 Iniciar Turno
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- MODAL 11: Ajuste Rápido de Stock / Inventario (HERA v2.0) -->
+  <div id="modal-stock-adjust" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <div class="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-4 animate-fade-in-scale">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+        <div>
+          <h3 class="text-base font-bold font-display text-slate-900 dark:text-white flex items-center gap-1.5">
+            <span>📦</span> <span>Ajuste de Stock</span>
+          </h3>
+          <p id="stock-adjust-product-name" class="text-xs font-bold text-indigo-600 dark:text-indigo-400">Producto</p>
+        </div>
+        <button type="button" class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg leading-none" data-close-modal="modal-stock-adjust">&times;</button>
+      </div>
+
+      <input type="hidden" id="stock-adjust-product-id">
+
+      <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
+        <span class="text-slate-500">Existencias actuales:</span>
+        <span id="stock-adjust-current-units" class="text-base font-extrabold font-mono text-slate-900 dark:text-white">0</span>
+      </div>
+
+      <form id="form-stock-adjust" class="space-y-3" onsubmit="return false;">
+        <div>
+          <label for="stock-adjust-mode" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Tipo de Movimiento:</label>
+          <select id="stock-adjust-mode" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white">
+            <option value="ADD">➕ Entrada / Ingreso de Unidades</option>
+            <option value="SET">🎯 Conteo Físico Exacto (Fijar Stock)</option>
+            <option value="SUB">➖ Salida / Merma / Baja</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label for="stock-adjust-units" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Cantidad / Unidades:</label>
+            <input type="number" id="stock-adjust-units" min="0" step="1" placeholder="Ej: 10" required class="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white">
+          </div>
+          <div>
+            <label for="stock-adjust-min" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Alerta Stock Mín.:</label>
+            <input type="number" id="stock-adjust-min" min="0" step="1" placeholder="Ej: 5" class="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white">
+          </div>
+        </div>
+
+        <div>
+          <label for="stock-adjust-reason" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Motivo / Observación:</label>
+          <input type="text" id="stock-adjust-reason" placeholder="Ej: Compra proveedor, conteo físico..." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white">
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+          <button type="button" class="px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-300 dark:border-slate-700" data-close-modal="modal-stock-adjust">Cancelar</button>
+          <button type="button" id="btn-confirm-stock-adjust" class="px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/30 transition">
+            💾 Aplicar Ajuste
           </button>
         </div>
       </form>

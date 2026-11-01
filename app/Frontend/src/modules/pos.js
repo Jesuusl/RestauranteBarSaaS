@@ -145,17 +145,41 @@ function filterAndRenderPosProducts() {
   }
 
   grid.innerHTML = products.map(p => {
-    const price = Number(p.salePriceCOP || 0);
+    const price = Number(p.salePriceCOP || p.priceCOP || p.price || 0);
     const stationBadge = p.station === 'BAR'
       ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-semibold">Barra</span>'
       : '<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 font-semibold">Cocina</span>';
 
+    // Stock Badge (respetando módulo inventory activo en tenant)
+    const isInventoryEnabled = state.currentTenant?.enabledModules?.inventory !== false;
+    let stockBadge = '';
+    const isTracked = isInventoryEnabled && !!p.trackStock;
+    const stockUnits = Number(p.stockUnits !== undefined ? p.stockUnits : (p.stock !== undefined ? p.stock : 0));
+    const minStock = Number(p.minStockUnits ?? 5);
+    const isOut = isTracked && stockUnits <= 0;
+
+    if (isTracked) {
+      if (isOut) {
+        stockBadge = '<span class="text-[9px] px-1.5 py-0.2 rounded font-extrabold bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300">Agotado</span>';
+      } else if (stockUnits <= minStock) {
+        stockBadge = `<span class="text-[9px] px-1.5 py-0.2 rounded font-extrabold bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300">Quedan ${stockUnits}</span>`;
+      } else {
+        stockBadge = `<span class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300">${stockUnits} disp.</span>`;
+      }
+    }
+
+    const disabledAttr = isOut ? 'disabled' : '';
+    const opacityClass = isOut ? 'opacity-50 cursor-not-allowed border-rose-300 dark:border-rose-900/40' : 'hover:border-indigo-500 hover:shadow-md';
+
     return `
-      <button type="button" class="btn-pos-product p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-indigo-500 hover:shadow-md transition text-left flex flex-col justify-between space-y-2 group active:scale-[0.98]" data-product-id="${p.id}">
+      <button type="button" ${disabledAttr} class="btn-pos-product p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm transition text-left flex flex-col justify-between space-y-2 group active:scale-[0.98] ${opacityClass}" data-product-id="${p.id}">
         <div class="space-y-1">
           <div class="flex items-center justify-between gap-1">
             <span class="text-[11px] text-slate-400 truncate">${escapeHtml(p.category || 'General')}</span>
-            ${stationBadge}
+            <div class="flex items-center gap-1">
+              ${stockBadge}
+              ${stationBadge}
+            </div>
           </div>
           <h4 class="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 line-clamp-2 group-hover:text-indigo-600 transition">
             ${escapeHtml(p.name)}
@@ -165,15 +189,15 @@ function filterAndRenderPosProducts() {
           <span class="text-xs sm:text-sm font-mono font-extrabold text-indigo-600 dark:text-indigo-400">
             ${formatCOP(price)}
           </span>
-          <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xs group-hover:bg-indigo-600 group-hover:text-white transition">
-            +
+          <span class="w-6 h-6 rounded-lg ${isOut ? 'bg-slate-200 text-slate-400' : 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white'} flex items-center justify-center font-bold text-xs transition">
+            ${isOut ? '✕' : '+'}
           </span>
         </div>
       </button>
     `;
   }).join('');
 
-  grid.querySelectorAll('.btn-pos-product').forEach(btn => {
+  grid.querySelectorAll('.btn-pos-product:not([disabled])').forEach(btn => {
     btn.addEventListener('click', () => {
       const prodId = btn.dataset.productId;
       const product = (state.products || []).find(p => p.id === prodId);
@@ -185,11 +209,21 @@ function filterAndRenderPosProducts() {
 }
 
 function openModifierModalForProduct(product) {
+  const isInventoryEnabled = state.currentTenant?.enabledModules?.inventory !== false;
+  if (isInventoryEnabled && product.trackStock) {
+    const stockUnits = Number(product.stockUnits !== undefined ? product.stockUnits : (product.stock !== undefined ? product.stock : 0));
+    if (stockUnits <= 0) {
+      showToast('Este producto se encuentra agotado', 'warning');
+      return;
+    }
+  }
+
   tempModProduct = product;
   const nameEl = document.getElementById('modal-mod-product-name');
   const notesInput = document.getElementById('modal-mod-notes');
 
-  if (nameEl) nameEl.textContent = `${product.name} (${formatCOP(product.salePriceCOP)})`;
+  const price = product.salePriceCOP || product.priceCOP || product.price || 0;
+  if (nameEl) nameEl.textContent = `${product.name} (${formatCOP(price)})`;
   if (notesInput) notesInput.value = '';
 
   // Limpiar chips seleccionados
@@ -202,6 +236,16 @@ function openModifierModalForProduct(product) {
 
 function handleConfirmAddWithMod() {
   if (!tempModProduct) return;
+
+  const isInventoryEnabled = state.currentTenant?.enabledModules?.inventory !== false;
+  if (isInventoryEnabled && tempModProduct.trackStock) {
+    const available = Number(tempModProduct.stockUnits !== undefined ? tempModProduct.stockUnits : (tempModProduct.stock !== undefined ? tempModProduct.stock : 0));
+    const alreadyInCart = posCart.filter(it => it.product.id === tempModProduct.id).reduce((acc, it) => acc + it.quantity, 0);
+    if (alreadyInCart + 1 > available) {
+      showToast(`Stock insuficiente. Solo quedan ${available} unidades de ${tempModProduct.name}`, 'warning');
+      return;
+    }
+  }
 
   const notesInput = document.getElementById('modal-mod-notes');
   const notes = notesInput ? notesInput.value.trim() : '';
@@ -317,7 +361,22 @@ function renderPosCart() {
   container.querySelectorAll('.btn-pos-inc').forEach(btn => {
     btn.addEventListener('click', () => {
       const idx = Number(btn.dataset.index);
-      posCart[idx].quantity += 1;
+      const targetItem = posCart[idx];
+      if (!targetItem) return;
+
+      const isInventoryEnabled = state.currentTenant?.enabledModules?.inventory !== false;
+      if (isInventoryEnabled && targetItem.product.trackStock) {
+        const available = Number(targetItem.product.stockUnits !== undefined ? targetItem.product.stockUnits : (targetItem.product.stock !== undefined ? targetItem.product.stock : 0));
+        const totalInCart = posCart
+          .filter(it => it.product.id === targetItem.product.id)
+          .reduce((acc, it) => acc + it.quantity, 0);
+        if (totalInCart + 1 > available) {
+          showToast(`Stock límite alcanzado (${available} unidades)`, 'warning');
+          return;
+        }
+      }
+
+      targetItem.quantity += 1;
       renderPosCart();
     });
   });
@@ -401,6 +460,17 @@ async function handleSubmitOrder(onOrderSubmitted) {
       const err = await res.json().catch(() => ({}));
       showToast(err.error || 'Error al enviar comanda a cocina', 'alert');
       return;
+    }
+
+    const isInventoryEnabled = state.currentTenant?.enabledModules?.inventory !== false;
+    if (isInventoryEnabled) {
+      payload.items.forEach(it => {
+        const p = (state.products || []).find(prod => String(prod.id) === String(it.productId));
+        if (p && p.trackStock && p.stockUnits !== undefined) {
+          p.stockUnits = Math.max(0, p.stockUnits - it.quantity);
+        }
+      });
+      renderPosProductsGrid();
     }
 
     showToast('¡Comanda enviada a KDS con éxito!', 'success');

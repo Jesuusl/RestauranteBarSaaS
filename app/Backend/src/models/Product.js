@@ -12,6 +12,12 @@ class Product {
     this.isAvailable = rawAvail === undefined
       ? true
       : (rawAvail === true || rawAvail === 1 || rawAvail === 'true' || rawAvail === 't' || rawAvail === '1');
+
+    const rawTrack = data.trackStock ?? data.trackstock;
+    this.trackStock = rawTrack === true || rawTrack === 1 || rawTrack === 'true' || rawTrack === 't' || rawTrack === '1';
+    this.stockUnits = Math.max(0, parseInt(data.stockUnits ?? data.stockunits ?? 0, 10) || 0);
+    this.minStockUnits = Math.max(0, parseInt(data.minStockUnits ?? data.minstockunits ?? 5, 10) || 5);
+
     this.recipe = (data.recipe || []).map(r => ({
       id: r.id,
       ingredientId: r.ingredientId || r.ingredientid,
@@ -32,16 +38,24 @@ class Product {
     const id = productData.id || `prod-${Date.now()}`;
     const tenantId = productData.tenantId || productData.tenantid || 'tenant-default';
 
+    const rawTrack = productData.trackStock ?? productData.trackstock;
+    const trackStock = rawTrack === true || rawTrack === 1 || rawTrack === 'true' || rawTrack === 't' || rawTrack === '1';
+    const stockUnits = Math.max(0, parseInt(productData.stockUnits ?? productData.stockunits ?? 0, 10) || 0);
+    const minStockUnits = Math.max(0, parseInt(productData.minStockUnits ?? productData.minstockunits ?? 5, 10) || 5);
+
     await db.query(`
-      INSERT INTO products (id, tenantId, name, category, station, salePriceCOP, isAvailable)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO products (id, tenantId, name, category, station, salePriceCOP, isAvailable, trackStock, stockUnits, minStockUnits)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       ON CONFLICT (id) DO UPDATE SET
         tenantId = EXCLUDED.tenantId,
         name = EXCLUDED.name,
         category = EXCLUDED.category,
         station = EXCLUDED.station,
         salePriceCOP = EXCLUDED.salePriceCOP,
-        isAvailable = EXCLUDED.isAvailable
+        isAvailable = EXCLUDED.isAvailable,
+        trackStock = EXCLUDED.trackStock,
+        stockUnits = EXCLUDED.stockUnits,
+        minStockUnits = EXCLUDED.minStockUnits
     `, [
       id,
       tenantId,
@@ -49,7 +63,10 @@ class Product {
       productData.category,
       productData.station,
       Number(rawPrice || 0),
-      isAvail
+      isAvail,
+      trackStock,
+      stockUnits,
+      minStockUnits
     ]);
 
     if (Array.isArray(productData.recipe) && productData.recipe.length > 0) {
@@ -153,11 +170,24 @@ class Product {
       ? (data.isAvailable === true || data.isAvailable === 1 || data.isAvailable === 'true')
       : existing.isAvailable;
 
+    let trackStock = existing.trackStock;
+    if (data.trackStock !== undefined || data.trackstock !== undefined) {
+      const rawTrack = data.trackStock ?? data.trackstock;
+      trackStock = rawTrack === true || rawTrack === 1 || rawTrack === 'true' || rawTrack === 't' || rawTrack === '1';
+    }
+    const stockUnits = data.stockUnits !== undefined || data.stockunits !== undefined
+      ? Math.max(0, parseInt(data.stockUnits ?? data.stockunits, 10) || 0)
+      : existing.stockUnits;
+    const minStockUnits = data.minStockUnits !== undefined || data.minstockunits !== undefined
+      ? Math.max(0, parseInt(data.minStockUnits ?? data.minstockunits, 10) || 0)
+      : existing.minStockUnits;
+
     await db.query(`
       UPDATE products
-      SET name = $1, category = $2, station = $3, salePriceCOP = $4, isAvailable = $5
-      WHERE id = $6
-    `, [name, category, station, salePriceCOP, isAvailable, id]);
+      SET name = $1, category = $2, station = $3, salePriceCOP = $4, isAvailable = $5,
+          trackStock = $6, stockUnits = $7, minStockUnits = $8
+      WHERE id = $9
+    `, [name, category, station, salePriceCOP, isAvailable, trackStock, stockUnits, minStockUnits, id]);
 
     if (Array.isArray(data.recipe)) {
       await db.query('DELETE FROM product_recipes WHERE productId = $1', [id]);
@@ -173,6 +203,97 @@ class Product {
         `, [recipeId, id, item.ingredientId, Number(item.quantity)]);
       }
     }
+
+    return await Product.findById(id, db);
+  }
+
+  static async deductStock(id, quantity, customDb) {
+    const db = customDb || getDatabase();
+    const product = await Product.findById(id, db);
+    if (!product) {
+      const err = new Error(`Producto con ID ${id} no encontrado.`);
+      err.statusCode = 404;
+      throw err;
+    }
+    if (!product.trackStock) {
+      return product;
+    }
+    const qty = parseInt(quantity, 10) || 0;
+    if (product.stockUnits < qty) {
+      const err = new Error(`Stock insuficiente para "${product.name}" (Disponible: ${product.stockUnits}, Solicitado: ${qty})`);
+      err.statusCode = 400;
+      throw err;
+    }
+    const newStock = product.stockUnits - qty;
+    await db.query('UPDATE products SET stockUnits = $1 WHERE id = $2', [newStock, id]);
+    return await Product.findById(id, db);
+  }
+
+  static async restoreStock(id, quantity, customDb) {
+    const db = customDb || getDatabase();
+    const product = await Product.findById(id, db);
+    if (!product || !product.trackStock) {
+      return product;
+    }
+    const qty = parseInt(quantity, 10) || 0;
+    const newStock = product.stockUnits + qty;
+    await db.query('UPDATE products SET stockUnits = $1 WHERE id = $2', [newStock, id]);
+    return await Product.findById(id, db);
+  }
+
+  static async adjustStock(id, adjustments = {}, customDb) {
+    const db = customDb || getDatabase();
+    const product = await Product.findById(id, db);
+    if (!product) {
+      const err = new Error(`Producto con ID ${id} no encontrado.`);
+      err.statusCode = 404;
+      throw err;
+    }
+
+    let trackStock = product.trackStock;
+    if (adjustments.trackStock !== undefined || adjustments.trackstock !== undefined) {
+      const rawTrack = adjustments.trackStock ?? adjustments.trackstock;
+      trackStock = rawTrack === true || rawTrack === 1 || rawTrack === 'true' || rawTrack === 't' || rawTrack === '1';
+    }
+
+    let minStockUnits = product.minStockUnits;
+    if (adjustments.minStockUnits !== undefined || adjustments.minstockunits !== undefined) {
+      minStockUnits = Math.max(0, parseInt(adjustments.minStockUnits ?? adjustments.minstockunits, 10) || 0);
+    }
+
+    let stockUnits = product.stockUnits;
+    const mode = adjustments.mode; // 'ADD' | 'SUBTRACT' | 'SUB' | 'SET'
+    const qty = parseInt(adjustments.quantity ?? adjustments.units ?? 0, 10) || 0;
+
+    if (adjustments.delta !== undefined) {
+      const delta = parseInt(adjustments.delta, 10);
+      if (!isNaN(delta)) {
+        if (delta < 0 && stockUnits < Math.abs(delta)) {
+          const err = new Error(`Stock insuficiente para "${product.name}" (Disponible: ${stockUnits}, Solicitado: ${Math.abs(delta)})`);
+          err.statusCode = 400;
+          throw err;
+        }
+        stockUnits = Math.max(0, stockUnits + delta);
+      }
+    } else if (mode === 'ADD') {
+      stockUnits = Math.max(0, stockUnits + qty);
+    } else if (mode === 'SUBTRACT' || mode === 'SUB') {
+      if (stockUnits < qty) {
+        const err = new Error(`Stock insuficiente para "${product.name}" (Disponible: ${stockUnits}, Solicitado: ${qty})`);
+        err.statusCode = 400;
+        throw err;
+      }
+      stockUnits = Math.max(0, stockUnits - qty);
+    } else if (mode === 'SET' || adjustments.stockUnits !== undefined || adjustments.stockunits !== undefined) {
+      const target = adjustments.stockUnits !== undefined ? adjustments.stockUnits : (adjustments.stockunits !== undefined ? adjustments.stockunits : qty);
+      stockUnits = Math.max(0, parseInt(target, 10) || 0);
+    }
+
+    await db.query(`
+      UPDATE products
+      SET trackStock = $1, stockUnits = $2, minStockUnits = $3
+      WHERE id = $4
+    `, [trackStock, stockUnits, minStockUnits, id]);
 
     return await Product.findById(id, db);
   }

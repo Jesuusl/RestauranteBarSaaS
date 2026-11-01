@@ -111,6 +111,96 @@ class BillingController {
     }
   }
 
+
+  /**
+   * Helper para normalizar pagos mixtos, calcular devuelta y validar montos recibidos.
+   * @private
+   */
+  static _normalizePayments({ payments, paymentMethod, cashReceivedCOP, amountPaidCOP, customerNote, totalCOP }) {
+    const VALID_PAYMENT_METHODS = ['CASH', 'CARD', 'NEQUI', 'DAVIPLATA', 'TRANSFER'];
+    const resolvedCashReceived = cashReceivedCOP !== undefined
+      ? Number(cashReceivedCOP)
+      : (amountPaidCOP !== undefined ? Number(amountPaidCOP) : undefined);
+
+    let rawPayments = [];
+    if (Array.isArray(payments) && payments.length > 0) {
+      rawPayments = payments.map(p => ({
+        method: String(p.method || '').toUpperCase().trim(),
+        amountCOP: Math.round(Number(p.amountCOP ?? 0)),
+        reference: p.reference || customerNote || null
+      }));
+    } else {
+      const method = String(paymentMethod || 'CASH').toUpperCase().trim();
+      rawPayments = [{
+        method,
+        amountCOP: totalCOP,
+        reference: customerNote || null
+      }];
+    }
+
+    // Validar métodos y montos individuales
+    for (const p of rawPayments) {
+      if (!VALID_PAYMENT_METHODS.includes(p.method)) {
+        const err = new Error(`Método de pago inválido: ${p.method}. Permitidos: ${VALID_PAYMENT_METHODS.join(', ')}`);
+        err.statusCode = 400;
+        throw err;
+      }
+      if (p.amountCOP < 0) {
+        const err = new Error('El monto de pago no puede ser negativo.');
+        err.statusCode = 400;
+        throw err;
+      }
+    }
+
+    const nonCashPayments = rawPayments.filter(p => p.method !== 'CASH');
+    const cashPayments = rawPayments.filter(p => p.method === 'CASH');
+    const nonCashSum = nonCashPayments.reduce((acc, p) => acc + p.amountCOP, 0);
+
+    // Los pagos electrónicos no pueden superar el total adeudado
+    if (nonCashSum > totalCOP) {
+      const err = new Error('El monto pagado con métodos digitales/electrónicos no puede superar el total de la cuenta.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const netCashRequired = Math.max(0, totalCOP - nonCashSum);
+
+    // Determinar efectivo entregado (cashTendered)
+    let cashTendered = 0;
+    if (resolvedCashReceived !== undefined) {
+      cashTendered = resolvedCashReceived;
+    } else if (cashPayments.length > 0) {
+      cashTendered = cashPayments.reduce((acc, p) => acc + p.amountCOP, 0);
+    } else if (netCashRequired === 0) {
+      cashTendered = 0;
+    }
+
+    const totalTendered = nonCashSum + cashTendered;
+    if (totalTendered < totalCOP) {
+      const err = new Error(`El monto total recibido ($${totalTendered.toLocaleString('es-CO')}) es insuficiente para cubrir la cuenta ($${totalCOP.toLocaleString('es-CO')}).`);
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const changeCOP = cashTendered > 0 ? Math.max(0, cashTendered - netCashRequired) : 0;
+
+    const normalizedPayments = [...nonCashPayments];
+    if (netCashRequired > 0) {
+      const cashRef = cashPayments[0]?.reference || customerNote || null;
+      normalizedPayments.push({
+        method: 'CASH',
+        amountCOP: netCashRequired,
+        reference: cashRef
+      });
+    }
+
+    return {
+      normalizedPayments,
+      changeCOP,
+      cashReceivedCOP: cashTendered
+    };
+  }
+
   /**
    * Registra y emite la factura final de una mesa con sus pagos en COP bajo transacción ACID.
    */
@@ -118,7 +208,7 @@ class BillingController {
     try {
       const db = req.db || getDatabase();
       const tenantId = req.tenantId || req.tenant?.id || req.body.tenantId || 'tenant-default';
-      const { sessionId, tableId, includeTip, splitType, customerNote } = req.body;
+      const { sessionId, tableId, includeTip, splitType, customerNote, paymentMethod, cashReceivedCOP, amountPaidCOP } = req.body;
       let { items, payments } = req.body;
       const taxConfig = req.tenant?.taxConfig || {};
 
@@ -137,17 +227,30 @@ class BillingController {
 
       const calc = calculateCOPInvoice(items || [], includeTip !== false, 0.00, taxConfig);
 
-      // Si payments no viene o viene vacío, construir a partir de paymentMethod
-      if (!payments || payments.length === 0) {
-        const method = req.body.paymentMethod || 'CASH';
-        payments = [{
-          method,
-          amountCOP: calc.totalCOP,
-          reference: customerNote || null
-        }];
-      }
+      const paymentResult = BillingController._normalizePayments({
+        payments,
+        paymentMethod,
+        cashReceivedCOP,
+        amountPaidCOP,
+        customerNote,
+        totalCOP: calc.totalCOP
+      });
+
+      const isInventoryActive = !req.tenant || !req.tenant.enabledModules || req.tenant.enabledModules.inventory !== false;
 
       const invoice = await withTransaction(db, async (txDb) => {
+        // Si no proviene de órdenes de sesión previa, descontar stock simple si aplica
+        if (!sessionId && items && items.length > 0 && isInventoryActive) {
+          for (const it of items) {
+            if (it.productId) {
+              const prod = await Product.findById(it.productId, txDb);
+              if (prod && prod.trackStock) {
+                await Product.deductStock(it.productId, Number(it.quantity) || 1, txDb);
+              }
+            }
+          }
+        }
+
         const createdInvoice = await Invoice.create({
           id: `inv-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           tenantId,
@@ -166,7 +269,7 @@ class BillingController {
           totalCOP: calc.totalCOP,
           splitType: splitType || 'SINGLE',
           status: 'PAID',
-          payments: payments || [],
+          payments: paymentResult.normalizedPayments,
           items: items || []
         }, txDb);
 
@@ -191,23 +294,28 @@ class BillingController {
 
       eventService.broadcast(EVENT_TYPES.SALE_COMPLETED, invoice);
 
-      return res.status(201).json(invoice);
+      return res.status(201).json({
+        ...invoice,
+        invoice,
+        changeCOP: paymentResult.changeCOP,
+        cashReceivedCOP: paymentResult.cashReceivedCOP
+      });
     } catch (err) {
-      return res.status(500).json({ error: err.message });
+      const status = err.statusCode || 500;
+      return res.status(status).json({ error: err.message });
     }
   }
 
   /**
    * Cobro Rápido de Mostrador (Express Checkout).
-   * Venta directa al paso: no requiere mesa ni sesión, soporta efectivo/digitales,
-   * descuenta escandallo si aplica y calcula devuelta en COP.
+   * Venta directa al paso: soporta pagos únicos o mixtos, descuenta inventario simple y recetas,
+   * y calcula devuelta exacta en COP sin inflar las filas de pagos.
    */
   static async expressCheckout(req, res) {
     try {
       const db = req.db || getDatabase();
       const tenantId = req.tenantId || req.tenant?.id || req.body.tenantId || 'tenant-default';
-      const { items, paymentMethod, cashReceivedCOP, customerNote, includeTip } = req.body;
-      const resolvedCashReceived = cashReceivedCOP !== undefined ? cashReceivedCOP : req.body.amountPaidCOP;
+      const { items, paymentMethod, payments, cashReceivedCOP, amountPaidCOP, customerNote, includeTip } = req.body;
 
       if (!items || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ error: 'La venta de mostrador requiere al menos un ítem.' });
@@ -253,14 +361,42 @@ class BillingController {
       const taxConfig = req.tenant?.taxConfig || {};
       const calc = calculateCOPInvoice(enrichedItems, Boolean(includeTip), 0.00, taxConfig);
 
-      const method = paymentMethod || 'CASH';
-      const validMethods = ['CASH', 'CARD', 'NEQUI', 'DAVIPLATA'];
-      if (!validMethods.includes(method)) {
-        return res.status(400).json({ error: `Método de pago inválido. Permitidos: ${validMethods.join(', ')}` });
-      }
+      const paymentResult = BillingController._normalizePayments({
+        payments,
+        paymentMethod,
+        cashReceivedCOP,
+        amountPaidCOP,
+        customerNote,
+        totalCOP: calc.totalCOP
+      });
+
+      const isInventoryActive = !req.tenant || !req.tenant.enabledModules || req.tenant.enabledModules.inventory !== false;
 
       const { invoice, lowStockAlerts } = await withTransaction(db, async (txDb) => {
-        // Descontar inventario por receta si los productos tienen escandallo configurado
+        const alerts = [];
+
+        // 1. Control de stock simple (Módulo 9) si está activo
+        if (isInventoryActive) {
+          for (const it of enrichedItems) {
+            if (it.productId) {
+              const prod = await Product.findById(it.productId, txDb);
+              if (prod && prod.trackStock) {
+                const updated = await Product.deductStock(it.productId, it.quantity, txDb);
+                if (updated.stockUnits <= updated.minStockUnits) {
+                  alerts.push({
+                    productId: updated.id,
+                    productName: updated.name,
+                    stockUnits: updated.stockUnits,
+                    minStockUnits: updated.minStockUnits,
+                    message: `Alerta: Stock bajo para "${updated.name}" (${updated.stockUnits} unidades restantes)`
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        // 2. Control de escandallo por receta si los productos tienen receta asociada
         const itemsWithRecipe = [];
         for (const it of enrichedItems) {
           if (it.productId) {
@@ -271,10 +407,11 @@ class BillingController {
           }
         }
 
-        let alerts = [];
         if (itemsWithRecipe.length > 0) {
           const stockResult = await deductRecipeStock(itemsWithRecipe, txDb);
-          alerts = stockResult?.lowStockAlerts || [];
+          if (stockResult?.lowStockAlerts) {
+            alerts.push(...stockResult.lowStockAlerts);
+          }
         }
 
         const invoiceId = `inv-exp-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -297,24 +434,13 @@ class BillingController {
           splitType: 'SINGLE',
           status: 'PAID',
           items: enrichedItems,
-          payments: [
-            {
-              method,
-              amountCOP: calc.totalCOP,
-              reference: customerNote || null
-            }
-          ]
+          payments: paymentResult.normalizedPayments
         }, txDb);
 
         return { invoice: created, lowStockAlerts: alerts };
       });
 
-      // Cálculo de devuelta en efectivo
-      const changeCOP = method === 'CASH' && resolvedCashReceived !== undefined
-        ? Math.max(0, Math.round(Number(resolvedCashReceived) - calc.totalCOP))
-        : 0;
-
-      // Eventos en tiempo real SSE
+      // Emisión de eventos en tiempo real SSE
       eventService.broadcast(EVENT_TYPES.SALE_COMPLETED, invoice);
       for (const alert of lowStockAlerts) {
         eventService.broadcast(EVENT_TYPES.STOCK_ALERT, alert);
@@ -323,11 +449,15 @@ class BillingController {
       return res.status(201).json({
         success: true,
         invoice,
-        changeCOP,
+        changeCOP: paymentResult.changeCOP,
+        cashReceivedCOP: paymentResult.cashReceivedCOP,
         lowStockAlerts
       });
     } catch (err) {
-      return res.status(500).json({ error: 'Error en cobro rápido de mostrador: ' + err.message });
+      const status = err.statusCode || 500;
+      return res.status(status).json({
+        error: status === 400 ? err.message : 'Error en cobro rápido de mostrador: ' + err.message
+      });
     }
   }
 }

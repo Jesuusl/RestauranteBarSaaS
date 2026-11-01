@@ -44,6 +44,19 @@ export function setupCatalogModule({ onCatalogChanged }) {
       handleSaveProductForm(onCatalogChanged);
     });
   }
+
+  // Toggle visual para campos de stock
+  const trackStockCheckbox = document.getElementById('product-form-track-stock');
+  const stockFields = document.getElementById('product-form-stock-fields');
+  if (trackStockCheckbox && stockFields) {
+    trackStockCheckbox.addEventListener('change', () => {
+      if (trackStockCheckbox.checked) {
+        stockFields.classList.remove('hidden');
+      } else {
+        stockFields.classList.add('hidden');
+      }
+    });
+  }
 }
 
 export async function loadCatalogProducts({ onCatalogChanged } = {}) {
@@ -53,8 +66,11 @@ export async function loadCatalogProducts({ onCatalogChanged } = {}) {
       const raw = await res.json();
       state.products = (raw || []).map(p => ({
         ...p,
-        salePriceCOP: Number(p.salePriceCOP ?? p.salepricecop ?? 0),
-        isAvailable: p.isAvailable !== false && p.isavailable !== false
+        salePriceCOP: Number(p.salePriceCOP ?? p.salepricecop ?? p.priceCOP ?? p.price ?? 0),
+        isAvailable: p.isAvailable !== false && p.isavailable !== false,
+        trackStock: Boolean(p.trackStock ?? p.trackstock),
+        stockUnits: Number(p.stockUnits ?? p.stockunits ?? p.stock ?? 0),
+        minStockUnits: Number(p.minStockUnits ?? p.minstockunits ?? 5)
       }));
       filterAndRenderCatalog();
       if (typeof onCatalogChanged === 'function') onCatalogChanged(state.products);
@@ -195,6 +211,23 @@ export function openNewProductModal() {
   if (idInput) idInput.value = '';
   const title = document.getElementById('modal-product-form-title');
   if (title) title.textContent = '➕ Nuevo Producto';
+
+  const stockBox = document.getElementById('product-form-stock-box');
+  const trackChk = document.getElementById('product-form-track-stock');
+  const stockFields = document.getElementById('product-form-stock-fields');
+  const stockUnits = document.getElementById('product-form-stock-units');
+  const minStock = document.getElementById('product-form-min-stock');
+
+  const isInventoryEnabled = state.currentTenant?.enabledModules?.inventory !== false;
+  if (stockBox) {
+    if (isInventoryEnabled) stockBox.classList.remove('hidden');
+    else stockBox.classList.add('hidden');
+  }
+  if (trackChk) trackChk.checked = false;
+  if (stockFields) stockFields.classList.add('hidden');
+  if (stockUnits) stockUnits.value = '20';
+  if (minStock) minStock.value = '5';
+
   openModal('modal-product-form');
 }
 
@@ -207,13 +240,34 @@ function openEditProductModal(product) {
   const availSelect = document.getElementById('product-form-available');
   const title = document.getElementById('modal-product-form-title');
 
+  const stockBox = document.getElementById('product-form-stock-box');
+  const trackChk = document.getElementById('product-form-track-stock');
+  const stockFields = document.getElementById('product-form-stock-fields');
+  const stockUnits = document.getElementById('product-form-stock-units');
+  const minStock = document.getElementById('product-form-min-stock');
+
   if (idInput) idInput.value = product.id || '';
   if (nameInput) nameInput.value = product.name || '';
   if (catInput) catInput.value = product.category || '';
   if (stationSelect) stationSelect.value = product.station || 'KITCHEN';
-  if (priceInput) priceInput.value = product.salePriceCOP || 0;
+  if (priceInput) priceInput.value = product.salePriceCOP || product.priceCOP || product.price || 0;
   if (availSelect) availSelect.value = product.isAvailable !== false ? 'true' : 'false';
   if (title) title.textContent = `✏️ Editar Producto: ${product.name}`;
+
+  const isInventoryEnabled = state.currentTenant?.enabledModules?.inventory !== false;
+  if (stockBox) {
+    if (isInventoryEnabled) stockBox.classList.remove('hidden');
+    else stockBox.classList.add('hidden');
+  }
+
+  const isTracked = !!product.trackStock;
+  if (trackChk) trackChk.checked = isTracked;
+  if (stockFields) {
+    if (isTracked && isInventoryEnabled) stockFields.classList.remove('hidden');
+    else stockFields.classList.add('hidden');
+  }
+  if (stockUnits) stockUnits.value = product.stockUnits ?? product.stock ?? 0;
+  if (minStock) minStock.value = product.minStockUnits ?? 5;
 
   openModal('modal-product-form');
 }
@@ -226,6 +280,10 @@ async function handleSaveProductForm(onCatalogChanged) {
   const salePriceCOP = Number(document.getElementById('product-form-price')?.value);
   const isAvailable = document.getElementById('product-form-available')?.value === 'true';
 
+  const trackStock = Boolean(document.getElementById('product-form-track-stock')?.checked);
+  const stockUnits = Number(document.getElementById('product-form-stock-units')?.value) || 0;
+  const minStockUnits = Number(document.getElementById('product-form-min-stock')?.value) || 5;
+
   if (!name || salePriceCOP <= 0) {
     showToast('Nombre y precio COP válidos son obligatorios', 'alert');
     return;
@@ -236,7 +294,11 @@ async function handleSaveProductForm(onCatalogChanged) {
     category: category || 'General',
     station: station || 'KITCHEN',
     salePriceCOP,
-    isAvailable
+    priceCOP: salePriceCOP,
+    isAvailable,
+    trackStock,
+    stockUnits,
+    minStockUnits
   };
 
   try {

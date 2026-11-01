@@ -1,7 +1,8 @@
 /**
  * HERA CLOUD POS - Express POS Module (ES6)
- * Cobro ultrarrápido de mostrador, catálogo táctil, carrito reactivo,
- * cálculo de Impoconsumo (8%), Propina (10%), calculadora de billetes COP y ticket térmico.
+ * Cobro ultrarrápido de mostrador, catálogo táctil, carrito reactivo con control de stock en tiempo real,
+ * cálculo de Impoconsumo (8%), Propina (10%), soporte para Transferencia, Pago Mixto y ticket térmico.
+ * 100% Tailwind CSS, CERO estilos en línea.
  */
 
 import { state, initOfflineDb, saveOfflineDb } from '../state.js';
@@ -10,6 +11,7 @@ import { formatCOP, showToast, openModal, closeModal, renderThermalReceipt, esca
 
 let expressCart = []; // [{ product, quantity }]
 let selectedPaymentMethod = 'CASH';
+let activeMixedContext = null; // Para saber si el modal de pago mixto fue invocado desde express o billing
 
 export function setupExpressPos({ onSaleCompleted, onOpenProductModal }) {
   const searchInput = document.getElementById('express-search-input');
@@ -18,6 +20,7 @@ export function setupExpressPos({ onSaleCompleted, onOpenProductModal }) {
   const cashReceivedInput = document.getElementById('express-cash-received');
   const btnCheckout = document.getElementById('btn-express-checkout');
   const btnQuickProd = document.getElementById('btn-express-quick-product');
+  const btnOpenMixed = document.getElementById('btn-express-open-mixed');
 
   if (searchInput) {
     searchInput.addEventListener('input', () => filterAndRenderExpressProducts());
@@ -73,6 +76,21 @@ export function setupExpressPos({ onSaleCompleted, onOpenProductModal }) {
       calculateAndRenderTotals();
     });
   });
+
+  // Botón Abrir Pago Mixto desde Mostrador
+  if (btnOpenMixed) {
+    btnOpenMixed.addEventListener('click', () => {
+      if (expressCart.length === 0) {
+        showToast('Agrega al menos un producto para cobrar', 'warning');
+        return;
+      }
+      activeMixedContext = 'EXPRESS';
+      openMixedPaymentModal(getCartTotals().totalCOP);
+    });
+  }
+
+  // Configurar listeners del modal de pago mixto
+  setupMixedPaymentModalListeners(onSaleCompleted);
 
   // Billetes rápidos COP (Exacto, 10k, 20k, 50k, 100k)
   const billButtons = document.querySelectorAll('.express-bill-btn');
@@ -176,17 +194,41 @@ export function filterAndRenderExpressProducts(products = state.products || []) 
   }
 
   grid.innerHTML = filtered.map(p => {
-    const price = Number(p.salePriceCOP || 0);
+    const price = Number(p.salePriceCOP || p.priceCOP || p.price || 0);
     const stationBadge = p.station === 'BAR'
       ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-semibold">🍸 Barra</span>'
       : '<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 font-semibold">🍳 Cocina</span>';
 
+    // Stock Badge (respetando si el módulo inventory está habilitado para el tenant)
+    const isInventoryEnabled = state.currentTenant?.enabledModules?.inventory !== false;
+    let stockBadge = '';
+    const isTracked = isInventoryEnabled && !!p.trackStock;
+    const stockUnits = Number(p.stockUnits !== undefined ? p.stockUnits : (p.stock !== undefined ? p.stock : 0));
+    const minStock = Number(p.minStockUnits ?? 5);
+    const isOut = isTracked && stockUnits <= 0;
+
+    if (isTracked) {
+      if (isOut) {
+        stockBadge = '<span class="text-[9px] px-1.5 py-0.2 rounded font-extrabold bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300">Agotado</span>';
+      } else if (stockUnits <= minStock) {
+        stockBadge = `<span class="text-[9px] px-1.5 py-0.2 rounded font-extrabold bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300">Quedan ${stockUnits}</span>`;
+      } else {
+        stockBadge = `<span class="text-[9px] px-1.5 py-0.2 rounded font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300">${stockUnits} disp.</span>`;
+      }
+    }
+
+    const disabledAttr = isOut ? 'disabled' : '';
+    const opacityClass = isOut ? 'opacity-50 cursor-not-allowed border-rose-300 dark:border-rose-900/40' : 'hover:border-emerald-500 hover:shadow-md';
+
     return `
-      <button type="button" class="btn-express-add-prod p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-emerald-500 hover:shadow-md transition text-left flex flex-col justify-between space-y-2 group active:scale-[0.98]" data-product-id="${p.id}">
+      <button type="button" ${disabledAttr} class="btn-express-add-prod p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm transition text-left flex flex-col justify-between space-y-2 group active:scale-[0.98] ${opacityClass}" data-product-id="${p.id}">
         <div class="space-y-1">
           <div class="flex items-center justify-between gap-1">
             <span class="text-[11px] text-slate-400 truncate">${escapeHtml(p.category || 'General')}</span>
-            ${stationBadge}
+            <div class="flex items-center gap-1">
+              ${stockBadge}
+              ${stationBadge}
+            </div>
           </div>
           <h4 class="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-snug group-hover:text-emerald-600 transition">
             ${escapeHtml(p.name)}
@@ -196,15 +238,15 @@ export function filterAndRenderExpressProducts(products = state.products || []) 
           <span class="text-xs sm:text-sm font-extrabold font-mono text-emerald-600 dark:text-emerald-400">
             ${formatCOP(price)}
           </span>
-          <span class="w-6 h-6 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xs group-hover:bg-emerald-600 group-hover:text-white transition">
-            +
+          <span class="w-6 h-6 rounded-lg ${isOut ? 'bg-slate-200 text-slate-400' : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white'} flex items-center justify-center font-bold text-xs transition">
+            ${isOut ? '✕' : '+'}
           </span>
         </div>
       </button>
     `;
   }).join('');
 
-  grid.querySelectorAll('.btn-express-add-prod').forEach(btn => {
+  grid.querySelectorAll('.btn-express-add-prod:not([disabled])').forEach(btn => {
     btn.addEventListener('click', () => {
       const prodId = btn.dataset.productId;
       const product = products.find(p => p.id === prodId);
@@ -216,6 +258,18 @@ export function filterAndRenderExpressProducts(products = state.products || []) 
 }
 
 export function addItemToExpressCart(product) {
+  const isInventoryEnabled = state.currentTenant?.enabledModules?.inventory !== false;
+  // Validación de stock
+  if (isInventoryEnabled && product.trackStock) {
+    const available = Number(product.stockUnits !== undefined ? product.stockUnits : (product.stock !== undefined ? product.stock : 0));
+    const existing = expressCart.find(item => item.product.id === product.id);
+    const requested = existing ? (existing.quantity + 1) : 1;
+    if (requested > available) {
+      showToast(`Stock insuficiente. Solo quedan ${available} unidades de ${product.name}`, 'warning');
+      return;
+    }
+  }
+
   const existing = expressCart.find(item => item.product.id === product.id);
   if (existing) {
     existing.quantity += 1;
@@ -228,6 +282,15 @@ export function addItemToExpressCart(product) {
 function updateItemQuantity(productId, delta) {
   const item = expressCart.find(it => it.product.id === productId);
   if (!item) return;
+
+  const isInventoryEnabled = state.currentTenant?.enabledModules?.inventory !== false;
+  if (delta > 0 && isInventoryEnabled && item.product.trackStock) {
+    const available = Number(item.product.stockUnits !== undefined ? item.product.stockUnits : (item.product.stock !== undefined ? item.product.stock : 0));
+    if (item.quantity + delta > available) {
+      showToast(`Stock límite alcanzado (${available} unidades)`, 'warning');
+      return;
+    }
+  }
 
   item.quantity += delta;
   if (item.quantity <= 0) {
@@ -263,7 +326,7 @@ function renderExpressCart() {
   }
 
   container.innerHTML = expressCart.map(it => {
-    const unitPrice = Number(it.product.salePriceCOP || 0);
+    const unitPrice = Number(it.product.salePriceCOP || it.product.priceCOP || it.product.price || 0);
     const lineTotal = unitPrice * it.quantity;
 
     return `
@@ -309,7 +372,7 @@ function renderExpressCart() {
 }
 
 function getCartTotals() {
-  const subtotalCOP = expressCart.reduce((acc, it) => acc + ((Number(it.product.salePriceCOP) || 0) * it.quantity), 0);
+  const subtotalCOP = expressCart.reduce((acc, it) => acc + ((Number(it.product.salePriceCOP || it.product.priceCOP || it.product.price) || 0) * it.quantity), 0);
   const taxConfig = state.currentTenant?.taxConfig || {};
   const hasTax = Boolean(taxConfig.applyImpoconsumo ?? taxConfig.impoconsumo);
   const hasTip = Boolean(taxConfig.applyTip ?? taxConfig.suggestedTip);
@@ -371,12 +434,11 @@ function updateCashChange() {
   const totals = getCartTotals();
   const inputReceived = document.getElementById('express-cash-received');
   const displayChange = document.getElementById('express-cash-change');
-  const btnCheckout = document.getElementById('btn-express-checkout');
 
   if (!displayChange) return;
 
   if (selectedPaymentMethod !== 'CASH') {
-    displayChange.textContent = 'Pago Digital';
+    displayChange.textContent = selectedPaymentMethod === 'TRANSFER' ? 'Transferencia Digital' : 'Pago Digital';
     return;
   }
 
@@ -392,6 +454,233 @@ function updateCashChange() {
   } else {
     displayChange.textContent = `Faltan: ${formatCOP(Math.abs(diff))}`;
     displayChange.className = 'text-xs sm:text-sm font-mono font-extrabold text-red-500 py-1.5';
+  }
+}
+
+// ============================================================================
+// GESTIÓN DEL MODAL DE PAGO MIXTO
+// ============================================================================
+
+let mixedTargetTotal = 0;
+let customMixedConfirmHandler = null;
+
+export function openMixedPaymentModal(targetAmountCOP, context = 'EXPRESS', onConfirmHandler = null) {
+  activeMixedContext = context;
+  customMixedConfirmHandler = typeof onConfirmHandler === 'function' ? onConfirmHandler : null;
+  mixedTargetTotal = Math.round(Number(targetAmountCOP) || 0);
+
+  const totalTargetEl = document.getElementById('mixed-modal-total-target');
+  if (totalTargetEl) totalTargetEl.textContent = formatCOP(mixedTargetTotal);
+
+  // Limpiar inputs
+  const inputs = ['mixed-amount-cash', 'mixed-amount-card', 'mixed-amount-nequi', 'mixed-amount-daviplata', 'mixed-amount-transfer'];
+  inputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+
+  updateMixedModalBalances();
+  openModal('modal-mixed-payment');
+}
+
+function getMixedModalValues() {
+  const cash = Math.max(0, Number(document.getElementById('mixed-amount-cash')?.value) || 0);
+  const card = Math.max(0, Number(document.getElementById('mixed-amount-card')?.value) || 0);
+  const nequi = Math.max(0, Number(document.getElementById('mixed-amount-nequi')?.value) || 0);
+  const davi = Math.max(0, Number(document.getElementById('mixed-amount-daviplata')?.value) || 0);
+  const transfer = Math.max(0, Number(document.getElementById('mixed-amount-transfer')?.value) || 0);
+
+  const nonCashAssigned = card + nequi + davi + transfer;
+  const assigned = cash + nonCashAssigned;
+  const diff = mixedTargetTotal - assigned;
+  const changeCOP = (assigned > mixedTargetTotal && nonCashAssigned <= mixedTargetTotal)
+    ? (assigned - mixedTargetTotal)
+    : 0;
+
+  const payments = [];
+  if (cash > 0) payments.push({ method: 'CASH', amountCOP: cash });
+  if (card > 0) payments.push({ method: 'CARD', amountCOP: card });
+  if (nequi > 0) payments.push({ method: 'NEQUI', amountCOP: nequi });
+  if (davi > 0) payments.push({ method: 'DAVIPLATA', amountCOP: davi });
+  if (transfer > 0) payments.push({ method: 'TRANSFER', amountCOP: transfer });
+
+  return { cash, card, nequi, davi, transfer, nonCashAssigned, assigned, diff, changeCOP, payments };
+}
+
+function updateMixedModalBalances() {
+  const { nonCashAssigned, assigned, diff, changeCOP } = getMixedModalValues();
+
+  const assignedEl = document.getElementById('mixed-modal-total-assigned');
+  const dueEl = document.getElementById('mixed-modal-balance-due');
+  const btnConfirm = document.getElementById('btn-confirm-mixed-payment');
+
+  if (assignedEl) assignedEl.textContent = formatCOP(assigned);
+
+  const hasDigitalExcess = nonCashAssigned > mixedTargetTotal;
+
+  if (dueEl) {
+    if (hasDigitalExcess) {
+      dueEl.textContent = `Exceso Digital: ${formatCOP(nonCashAssigned - mixedTargetTotal)}`;
+      dueEl.className = 'text-sm sm:text-base font-extrabold font-mono text-rose-600 dark:text-rose-400';
+    } else if (diff === 0 && mixedTargetTotal > 0) {
+      dueEl.textContent = '$ 0 COP (Exacto)';
+      dueEl.className = 'text-sm sm:text-base font-extrabold font-mono text-emerald-600 dark:text-emerald-400';
+    } else if (diff > 0) {
+      dueEl.textContent = `Faltan: ${formatCOP(diff)}`;
+      dueEl.className = 'text-sm sm:text-base font-extrabold font-mono text-rose-600 dark:text-rose-400';
+    } else if (changeCOP > 0) {
+      dueEl.textContent = `Devuelta: ${formatCOP(changeCOP)}`;
+      dueEl.className = 'text-sm sm:text-base font-extrabold font-mono text-emerald-600 dark:text-emerald-400';
+    } else {
+      dueEl.textContent = '$ 0 COP';
+      dueEl.className = 'text-sm sm:text-base font-extrabold font-mono text-slate-500';
+    }
+  }
+
+  if (btnConfirm) {
+    btnConfirm.disabled = !(mixedTargetTotal > 0 && assigned >= mixedTargetTotal && !hasDigitalExcess);
+  }
+}
+
+function setupMixedPaymentModalListeners(onSaleCompleted) {
+  const mixedInputs = document.querySelectorAll('.mixed-input');
+  mixedInputs.forEach(input => {
+    input.addEventListener('input', updateMixedModalBalances);
+  });
+
+  // Botones de llenar restante ("Resto")
+  const fillBtns = document.querySelectorAll('.btn-fill-remaining');
+  fillBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetInputId = btn.getAttribute('data-target-input');
+      const targetInput = document.getElementById(targetInputId);
+      if (!targetInput) return;
+
+      targetInput.value = '0'; // temporal para recalcular suma ajena
+      const { assigned: otherAssigned } = getMixedModalValues();
+      const remaining = Math.max(0, mixedTargetTotal - otherAssigned);
+      targetInput.value = remaining;
+      updateMixedModalBalances();
+    });
+  });
+
+  const btnConfirm = document.getElementById('btn-confirm-mixed-payment');
+  if (btnConfirm) {
+    btnConfirm.addEventListener('click', async () => {
+      if (activeMixedContext === 'EXPRESS') {
+        await executeMixedExpressSale(onSaleCompleted);
+      } else if (activeMixedContext === 'BILLING' && typeof customMixedConfirmHandler === 'function') {
+        const meta = getMixedModalValues();
+        if (meta.payments.length > 0) {
+          await customMixedConfirmHandler(meta.payments, meta);
+        }
+      }
+    });
+  }
+}
+
+async function executeMixedExpressSale(onSaleCompleted) {
+  const { cash, assigned, changeCOP, payments } = getMixedModalValues();
+
+  const totals = getCartTotals();
+  const customerNote = document.getElementById('express-customer-note')?.value.trim();
+  const tipToggle = document.getElementById('express-tip-toggle');
+
+  const payload = {
+    customerName: customerNote || 'Cliente Mostrador',
+    customerNote: customerNote || '',
+    items: expressCart.map(it => ({
+      productId: it.product.id,
+      quantity: it.quantity,
+      unitPriceCOP: Number(it.product.salePriceCOP || it.product.priceCOP || it.product.price || 0),
+      productName: it.product.name
+    })),
+    paymentMethod: payments.length > 1 ? 'MIXED' : (payments[0]?.method || 'CASH'),
+    payments,
+    amountPaidCOP: assigned,
+    includeTip: Boolean(tipToggle?.checked)
+  };
+
+  try {
+    let result = null;
+    let res = null;
+    try {
+      res = await apiFetch('/api/billing/express-checkout', {
+        method: 'POST',
+        body: payload
+      });
+    } catch (_) {
+      res = null;
+    }
+
+    if (res) {
+      if (res.ok) {
+        result = await res.json();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Error al procesar cobro combinado');
+      }
+    } else {
+      result = processOfflineSale(payload, totals);
+    }
+
+    if (result) {
+      closeModal('modal-mixed-payment');
+      showToast('¡Pago combinado procesado con éxito!', 'success');
+
+      // Actualizar stock local si el módulo inventory está habilitado y el producto se rastrea
+      const isInventoryEnabled = state.currentTenant?.enabledModules?.inventory !== false;
+      if (isInventoryEnabled) {
+        payload.items.forEach(it => {
+          const p = (state.products || []).find(prod => String(prod.id) === String(it.productId));
+          if (p && p.trackStock && p.stockUnits !== undefined) {
+            p.stockUnits = Math.max(0, p.stockUnits - it.quantity);
+          }
+        });
+      }
+      filterAndRenderExpressProducts();
+
+      const finalPayments = result.payments || result.invoice?.payments || payments;
+      const finalChange = result.changeCOP ?? result.invoice?.changeCOP ?? changeCOP;
+
+      // Tirilla térmica
+      const printableContainer = document.getElementById('receipt-printable-content');
+      if (printableContainer) {
+        printableContainer.innerHTML = renderThermalReceipt({
+          tenant: state.currentTenant || {},
+          invoiceNumber: result.invoice?.invoiceNumber || result.invoiceNumber || `EXP-${Date.now().toString().slice(-4)}`,
+          date: new Date(),
+          tableNumber: null,
+          waiter: state.currentUser?.name || 'Cajero Express',
+          customerName: customerNote || null,
+          items: payload.items,
+          subtotalCOP: totals.subtotalCOP,
+          taxCOP: totals.taxCOP,
+          hasTax: totals.hasTax,
+          tipCOP: totals.tipCOP,
+          hasTip: totals.hasTip,
+          totalCOP: totals.totalCOP,
+          paymentMethod: finalPayments.length > 1 ? 'MIXED' : (finalPayments[0]?.method || 'MIXED'),
+          payments: finalPayments,
+          cashReceived: cash > 0 ? cash : null,
+          cashChange: finalChange > 0 ? finalChange : null
+        });
+      }
+
+      openModal('modal-receipt');
+
+      // Limpiar canasta
+      expressCart = [];
+      const noteInput = document.getElementById('express-customer-note');
+      if (noteInput) noteInput.value = '';
+      renderExpressCart();
+
+      if (typeof onSaleCompleted === 'function') {
+        onSaleCompleted(result);
+      }
+    }
+  } catch (err) {
+    showToast(err.message || 'Error en pago combinado', 'alert');
   }
 }
 
@@ -427,10 +716,11 @@ async function executeExpressCheckout(onSaleCompleted) {
     items: expressCart.map(it => ({
       productId: it.product.id,
       quantity: it.quantity,
-      unitPriceCOP: Number(it.product.salePriceCOP || 0),
+      unitPriceCOP: Number(it.product.salePriceCOP || it.product.priceCOP || it.product.price || 0),
       productName: it.product.name
     })),
     paymentMethod: selectedPaymentMethod,
+    payments: [{ method: selectedPaymentMethod, amountCOP: totals.totalCOP }],
     amountPaidCOP: cashReceived,
     cashReceivedCOP: cashReceived,
     includeTip: Boolean(tipToggle?.checked)
@@ -438,25 +728,41 @@ async function executeExpressCheckout(onSaleCompleted) {
 
   try {
     let result = null;
+    let res = null;
     try {
-      const res = await apiFetch('/api/billing/express-checkout', {
+      res = await apiFetch('/api/billing/express-checkout', {
         method: 'POST',
         body: payload
       });
+    } catch (_) {
+      res = null;
+    }
 
+    if (res) {
       if (res.ok) {
         result = await res.json();
       } else {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Error al procesar el cobro');
       }
-    } catch (apiErr) {
-      // Fallback offline
+    } else {
       result = processOfflineSale(payload, totals);
     }
 
     if (result) {
       showToast('¡Cobro realizado con éxito!', 'success');
+
+      // Actualizar stock local si el módulo inventory está habilitado y se rastrea
+      const isInventoryEnabled = state.currentTenant?.enabledModules?.inventory !== false;
+      if (isInventoryEnabled) {
+        payload.items.forEach(it => {
+          const p = (state.products || []).find(prod => String(prod.id) === String(it.productId));
+          if (p && p.trackStock && p.stockUnits !== undefined) {
+            p.stockUnits = Math.max(0, p.stockUnits - it.quantity);
+          }
+        });
+      }
+      filterAndRenderExpressProducts();
 
       // Preparar y mostrar tirilla térmica en modal
       const printableContainer = document.getElementById('receipt-printable-content');
@@ -476,6 +782,7 @@ async function executeExpressCheckout(onSaleCompleted) {
           hasTip: totals.hasTip,
           totalCOP: totals.totalCOP,
           paymentMethod: selectedPaymentMethod,
+          payments: payload.payments,
           cashReceived: selectedPaymentMethod === 'CASH' ? cashReceived : null,
           cashChange: selectedPaymentMethod === 'CASH' ? (result.changeCOP ?? (cashReceived - totals.totalCOP)) : null
         });
@@ -516,6 +823,7 @@ function processOfflineSale(payload, totals) {
     tipCOP: totals.tipCOP,
     totalCOP: totals.totalCOP,
     paymentMethod: payload.paymentMethod,
+    payments: payload.payments,
     amountPaidCOP: payload.amountPaidCOP,
     createdAt: new Date().toISOString(),
     items: payload.items
@@ -526,3 +834,4 @@ function processOfflineSale(payload, totals) {
 
   return { success: true, invoice: inv };
 }
+

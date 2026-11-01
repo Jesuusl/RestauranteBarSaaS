@@ -96,9 +96,11 @@ export function setupAuth({ onLoginSuccess, onLogout }) {
 
         if (res.ok) {
           data = await res.json();
-        } else if (res.status === 401 || res.status === 400) {
+        } else if (res.status === 401 || res.status === 400 || res.status === 403) {
           const errRes = await res.json().catch(() => ({}));
-          throw new Error(errRes.error || 'Credenciales inválidas');
+          const authErr = new Error(errRes.error || 'Credenciales inválidas');
+          authErr.isServerAuthRejection = true;
+          throw authErr;
         } else if (res.status === 404 || res.status >= 502) {
           // Manejar reinicio/cold-start de Render con fallback local seguro
           const offlineDb = initOfflineDb();
@@ -109,13 +111,18 @@ export function setupAuth({ onLoginSuccess, onLogout }) {
           }
         } else {
           const errRes = await res.json().catch(() => ({}));
-          throw new Error(errRes.error || 'Credenciales inválidas');
+          const authErr = new Error(errRes.error || 'Credenciales inválidas');
+          authErr.isServerAuthRejection = true;
+          throw authErr;
         }
       } catch (networkOrAuthErr) {
-        // Fallback local si el backend no responde por red o Render cold-start
-        if (networkOrAuthErr.message !== 'Credenciales inválidas' &&
+        // Fallback local únicamente si el backend no responde por red o Render cold-start
+        if (!networkOrAuthErr.isServerAuthRejection &&
+            networkOrAuthErr.message !== 'Credenciales inválidas' &&
             networkOrAuthErr.message !== 'Usuario o contraseña incorrectos' &&
-            !networkOrAuthErr.message.includes('suspendida')) {
+            !networkOrAuthErr.message.includes('suspendida') &&
+            !networkOrAuthErr.message.includes('vencido') &&
+            !networkOrAuthErr.message.includes('suscripción')) {
           const offlineDb = initOfflineDb();
           data = mockOfflineLogin(email, password, offlineDb);
           if (!data) throw networkOrAuthErr;
@@ -377,11 +384,19 @@ export async function checkAuthSession({ onSessionValid, onSessionInvalid }) {
       if (typeof onSessionValid === 'function') {
         onSessionValid(data.user, data.tenant);
       }
+    } else if (res.status === 401 || res.status === 403) {
+      const errRes = await res.json().catch(() => ({}));
+      clearAuthSession();
+      switchScreen('auth-screen');
+      if (errRes.error) {
+        showToast(errRes.error, 'alert');
+      }
+      if (typeof onSessionInvalid === 'function') onSessionInvalid();
     } else {
-      throw new Error('Token expirado');
+      throw new Error('Servidor no disponible');
     }
   } catch (err) {
-    // Si hay datos en memoria local, continuar offline
+    // Si hay datos en memoria local y fue fallo de red/5xx, continuar offline
     if (state.currentUser) {
       routeToRoleScreen(state.currentUser, state.currentTenant);
       if (typeof onSessionValid === 'function') {

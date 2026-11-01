@@ -4,6 +4,8 @@ const Table = require('../models/Table');
 const Waste = require('../models/Waste');
 const { registerWaste } = require('../services/inventoryService');
 const { withTransaction, getDatabase } = require('../config/database');
+const eventService = require('../services/eventService');
+const { EVENT_TYPES } = eventService;
 
 class InventoryController {
   // --- INGREDIENTES / STOCK ---
@@ -58,7 +60,7 @@ class InventoryController {
     try {
       const db = req.db || getDatabase();
       const tenantId = req.tenantId || req.tenant?.id || req.body.tenantId || 'tenant-default';
-      const { name, category, station, salePriceCOP } = req.body;
+      const { name, category, station, salePriceCOP, trackStock, stockUnits, minStockUnits } = req.body;
 
       if (!name || !category || !station) {
         return res.status(400).json({ error: 'Faltan campos obligatorios: name, category, station' });
@@ -73,10 +75,21 @@ class InventoryController {
         return res.status(400).json({ error: 'El precio de venta debe ser un número mayor o igual a 0' });
       }
 
+      if (stockUnits !== undefined && (isNaN(Number(stockUnits)) || Number(stockUnits) < 0)) {
+        return res.status(400).json({ error: 'Las unidades de stock deben ser un número mayor o igual a 0' });
+      }
+
+      if (minStockUnits !== undefined && (isNaN(Number(minStockUnits)) || Number(minStockUnits) < 0)) {
+        return res.status(400).json({ error: 'El stock mínimo debe ser un número mayor o igual a 0' });
+      }
+
       const product = await Product.create({
         ...req.body,
         tenantId,
-        station: normalizedStation
+        station: normalizedStation,
+        trackStock: trackStock !== undefined ? Boolean(trackStock) : false,
+        stockUnits: stockUnits !== undefined ? Number(stockUnits) : 0,
+        minStockUnits: minStockUnits !== undefined ? Number(minStockUnits) : 5
       }, db);
       return res.status(201).json(product);
     } catch (err) {
@@ -87,7 +100,7 @@ class InventoryController {
   static async updateProduct(req, res) {
     try {
       const db = req.db || getDatabase();
-      const { station, salePriceCOP } = req.body;
+      const { station, salePriceCOP, stockUnits, minStockUnits } = req.body;
 
       if (station !== undefined) {
         const normalizedStation = String(station).toUpperCase();
@@ -101,10 +114,59 @@ class InventoryController {
         return res.status(400).json({ error: 'El precio de venta debe ser un número mayor o igual a 0' });
       }
 
+      if (stockUnits !== undefined && (isNaN(Number(stockUnits)) || Number(stockUnits) < 0)) {
+        return res.status(400).json({ error: 'Las unidades de stock deben ser un número mayor o igual a 0' });
+      }
+
+      if (minStockUnits !== undefined && (isNaN(Number(minStockUnits)) || Number(minStockUnits) < 0)) {
+        return res.status(400).json({ error: 'El stock mínimo debe ser un número mayor o igual a 0' });
+      }
+
       const updated = await Product.update(req.params.id, req.body, db);
       if (!updated) {
         return res.status(404).json({ error: 'Producto no encontrado' });
       }
+      return res.json(updated);
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+  }
+
+  /**
+   * Ajuste directo de existencias de inventario simple (PATCH /api/products/:id/stock).
+   * Soporta ajuste por delta (+/-) o fijación absoluta de stockUnits, minStockUnits y trackStock.
+   */
+  static async adjustProductStock(req, res) {
+    try {
+      const db = req.db || getDatabase();
+      const tenantId = req.tenantId || req.tenant?.id || 'tenant-default';
+      const product = await Product.findById(req.params.id, db);
+      if (!product || (req.user && req.user.role !== 'SUPER_ADMIN' && product.tenantId !== tenantId)) {
+        return res.status(404).json({ error: 'Producto no encontrado' });
+      }
+
+      const updated = await Product.adjustStock(req.params.id, req.body, db);
+
+      // Eventos SSE de inventario en tiempo real
+      eventService.broadcast(EVENT_TYPES.PRODUCT_STOCK_UPDATED, {
+        tenantId: updated.tenantId,
+        productId: updated.id,
+        trackStock: updated.trackStock,
+        stockUnits: updated.stockUnits,
+        minStockUnits: updated.minStockUnits
+      });
+
+      if (updated.trackStock && updated.stockUnits <= updated.minStockUnits) {
+        eventService.broadcast(EVENT_TYPES.STOCK_ALERT, {
+          tenantId: updated.tenantId,
+          productId: updated.id,
+          productName: updated.name,
+          stockUnits: updated.stockUnits,
+          minStockUnits: updated.minStockUnits,
+          message: `Alerta: Stock bajo para "${updated.name}" (${updated.stockUnits} unidades restantes)`
+        });
+      }
+
       return res.json(updated);
     } catch (err) {
       return res.status(400).json({ error: err.message });

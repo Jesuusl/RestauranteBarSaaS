@@ -139,7 +139,7 @@ export function initSSE(onEvent) {
       updateServerStatusBadge(true);
     };
 
-    const sseEventTypes = ['ORDER_CREATED', 'ORDER_STATUS_CHANGED', 'TABLE_STATUS_CHANGED', 'STOCK_ALERT', 'SALE_COMPLETED', 'TENANT_UPDATED'];
+    const sseEventTypes = ['ORDER_CREATED', 'ORDER_STATUS_CHANGED', 'TABLE_STATUS_CHANGED', 'STOCK_ALERT', 'SALE_COMPLETED', 'SALE_CANCELLED', 'PRODUCT_STOCK_UPDATED', 'TENANT_UPDATED'];
     sseEventTypes.forEach(eventType => {
       eventSource.addEventListener(eventType, (e) => {
         try {

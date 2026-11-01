@@ -1,12 +1,13 @@
 /**
  * HERA CLOUD POS - Sales Analytics & CSV Export Module (ES6)
  * Reportes de facturación en tiempo real, KPIs ejecutivos, producto más vendido,
- * ranking con barra de progreso nativa (0 inline styles) y exportación compatible con Excel (BOM UTF-8).
+ * ranking con barra de progreso nativa (0 inline styles), anulación de venta con auditoría
+ * y exportación compatible con Excel (BOM UTF-8).
  */
 
 import { state, initOfflineDb } from '../state.js';
 import { apiFetch } from '../api.js';
-import { formatCOP, formatDateCO, formatTimeCO, formatDateTimeCO, showToast, downloadCsvBlob, openModal, renderThermalReceipt, escapeHtml } from '../utils.js';
+import { formatCOP, formatDateCO, formatTimeCO, formatDateTimeCO, showToast, downloadCsvBlob, openModal, closeModal, renderThermalReceipt, escapeHtml } from '../utils.js';
 
 let activePeriod = 'TODAY';
 let cachedSummary = null;
@@ -51,6 +52,12 @@ export function setupSalesModule() {
       });
       loadSalesSummary();
     });
+  }
+
+  // Vincular botón de confirmación de anulación de venta
+  const btnConfirmCancel = document.getElementById('btn-confirm-cancel-sale');
+  if (btnConfirmCancel) {
+    btnConfirmCancel.addEventListener('click', handleConfirmCancelSale);
   }
 }
 
@@ -145,7 +152,8 @@ function renderSalesData(summary = {}) {
     const nequi = breakdown.NEQUI ?? byMethod.NEQUI?.totalCOP ?? 0;
     const davi = breakdown.DAVIPLATA ?? byMethod.DAVIPLATA?.totalCOP ?? 0;
     const transfer = breakdown.TRANSFER ?? byMethod.TRANSFER?.totalCOP ?? 0;
-    elMethods.textContent = `Efectivo: ${formatCOP(cash)} | Digital: ${formatCOP(card + nequi + davi + transfer)}`;
+    const mixed = breakdown.MIXED ?? byMethod.MIXED?.totalCOP ?? 0;
+    elMethods.textContent = `Efectivo: ${formatCOP(cash)} | Digital/Mixto: ${formatCOP(card + nequi + davi + transfer + mixed)}`;
   }
 
   if (elAvg) elAvg.textContent = formatCOP(summary.averageTicketCOP || 0);
@@ -223,30 +231,50 @@ function renderHistoryTable(history = []) {
   if (emptyEl) emptyEl.classList.add('hidden');
 
   tbody.innerHTML = history.map(sale => {
+    const isCancelled = sale.status === 'CANCELLED';
     const items = sale.items || [];
     const totalUnits = sale.itemsCount ?? items.reduce((acc, it) => acc + (it.quantity || 0), 0);
     const dateFormatted = formatDateTimeCO(sale.createdAt);
 
     const isExpress = sale.saleType === 'EXPRESS' || (!sale.tableNumber && !sale.tableId);
     const tableNum = sale.tableNumber || (state.tables || []).find(t => t.id === sale.tableId)?.number;
-    const typeBadge = isExpress
-      ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">⚡ Express</span>'
-      : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">🍽️ Mesa ${escapeHtml(String(tableNum || ''))}</span>`;
+    
+    let typeBadge = '';
+    if (isCancelled) {
+      typeBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400" title="${escapeHtml(sale.cancelReason || 'Anulada')}">🚫 Anulada</span>`;
+    } else if (isExpress) {
+      typeBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">⚡ Express</span>';
+    } else {
+      typeBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">🍽️ Mesa ${escapeHtml(String(tableNum || ''))}</span>`;
+    }
 
     const methodLabels = {
       CASH: '💵 Efectivo',
       CARD: '💳 Tarjeta',
       NEQUI: '📱 Nequi',
       DAVIPLATA: '📲 Daviplata',
-      TRANSFER: '🏦 Transfer'
+      TRANSFER: '🏦 Transfer',
+      MIXED: '🔀 Mixto'
     };
     const methodBadge = `<span class="font-medium text-[11px]">${methodLabels[sale.paymentMethod] || sale.paymentMethod || '💵 Efectivo'}</span>`;
 
     const itemsSummary = items.slice(0, 2).map(it => `${it.quantity}x ${it.productName}`).join(', ');
     const moreItems = items.length > 2 ? ` <span class="text-slate-400 font-semibold">+${items.length - 2}</span>` : '';
 
+    const rowClasses = isCancelled
+      ? 'opacity-60 bg-rose-50/20 dark:bg-rose-950/10 line-through text-slate-400'
+      : 'hover:bg-slate-50 dark:hover:bg-slate-800/40 transition';
+
+    const cancelActionBtn = isCancelled
+      ? `<span class="text-[10px] text-rose-500 font-bold px-1">Anulada</span>`
+      : `
+        <button type="button" class="btn-cancel-sale-trigger p-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs text-rose-600 dark:text-rose-400 transition" data-sale-id="${sale.id || sale.invoiceNumber}" title="Anular Venta">
+          🚫
+        </button>
+      `;
+
     return `
-      <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+      <tr class="${rowClasses}">
         <td class="py-2.5 px-2 font-mono text-[11px] whitespace-nowrap">${dateFormatted}</td>
         <td class="py-2.5 px-2">${typeBadge}</td>
         <td class="py-2.5 px-2 truncate max-w-[200px]" title="${escapeHtml(items.map(i => `${i.quantity}x ${i.productName}`).join('\n'))}">
@@ -254,13 +282,16 @@ function renderHistoryTable(history = []) {
         </td>
         <td class="py-2.5 px-2 text-center font-bold">${totalUnits}</td>
         <td class="py-2.5 px-2 whitespace-nowrap">${methodBadge}</td>
-        <td class="py-2.5 px-2 text-right font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap">
+        <td class="py-2.5 px-2 text-right font-mono font-bold ${isCancelled ? 'text-rose-500' : 'text-slate-900 dark:text-white'} whitespace-nowrap">
           ${formatCOP(sale.totalCOP)}
         </td>
         <td class="py-2.5 px-2 text-center">
-          <button type="button" class="btn-view-receipt p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs text-slate-600 dark:text-slate-300 transition" data-sale-id="${sale.id || sale.invoiceNumber}" title="Ver Comprobante">
-            🧾
-          </button>
+          <div class="flex items-center justify-center gap-1">
+            <button type="button" class="btn-view-receipt p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs text-slate-600 dark:text-slate-300 transition" data-sale-id="${sale.id || sale.invoiceNumber}" title="Ver Comprobante">
+              🧾
+            </button>
+            ${cancelActionBtn}
+          </div>
         </td>
       </tr>
     `;
@@ -276,6 +307,66 @@ function renderHistoryTable(history = []) {
       }
     });
   });
+
+  // Vincular botones de gatillar anulación de venta
+  tbody.querySelectorAll('.btn-cancel-sale-trigger').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const saleId = btn.dataset.saleId;
+      const sale = history.find(s => (s.id === saleId || s.invoiceNumber === saleId));
+      if (sale) {
+        openCancelSaleModal(sale);
+      }
+    });
+  });
+}
+
+function openCancelSaleModal(sale) {
+  const targetIdInput = document.getElementById('cancel-sale-target-id');
+  const idDisplay = document.getElementById('cancel-sale-id-display');
+  const infoDisplay = document.getElementById('cancel-sale-info-display');
+  const reasonInput = document.getElementById('cancel-sale-reason');
+
+  if (targetIdInput) targetIdInput.value = sale.id || sale.invoiceNumber;
+  if (idDisplay) idDisplay.textContent = sale.invoiceNumber || sale.id;
+  if (infoDisplay) infoDisplay.textContent = `${formatCOP(sale.totalCOP)} · ${sale.items?.length || 0} ítems`;
+  if (reasonInput) reasonInput.value = '';
+
+  openModal('modal-cancel-sale');
+}
+
+async function handleConfirmCancelSale() {
+  const targetIdInput = document.getElementById('cancel-sale-target-id');
+  const reasonInput = document.getElementById('cancel-sale-reason');
+
+  const saleId = targetIdInput?.value;
+  const reason = reasonInput?.value?.trim();
+
+  if (!saleId) return;
+  if (!reason) {
+    showToast('Debes ingresar el motivo obligatorio de la anulación', 'warning');
+    if (reasonInput) reasonInput.focus();
+    return;
+  }
+
+  try {
+    const res = await apiFetch(`/api/sales/${saleId}/cancel`, {
+      method: 'POST',
+      body: { reason }
+    });
+
+    if (res.ok) {
+      closeModal('modal-cancel-sale');
+      showToast('Venta anulada correctamente', 'success');
+      await loadSalesSummary();
+      return;
+    } else {
+      const err = await res.json().catch(() => ({}));
+      showToast(err.error || 'No se pudo anular la venta', 'error');
+    }
+  } catch (err) {
+    console.error('Error al anular venta:', err);
+    showToast('Error de conexión al anular venta', 'error');
+  }
 }
 
 function showReceiptModal(sale) {
@@ -298,8 +389,11 @@ function showReceiptModal(sale) {
       hasTip: Boolean(sale.tipCOP),
       totalCOP: sale.totalCOP || 0,
       paymentMethod: sale.paymentMethod || 'CASH',
+      payments: sale.payments || null,
       cashReceived: sale.amountPaidCOP || null,
-      cashChange: (sale.paymentMethod === 'CASH' && sale.amountPaidCOP > sale.totalCOP) ? (sale.amountPaidCOP - sale.totalCOP) : null
+      cashChange: sale.changeCOP ?? ((sale.paymentMethod === 'CASH' && sale.amountPaidCOP > sale.totalCOP) ? (sale.amountPaidCOP - sale.totalCOP) : null),
+      status: sale.status || 'COMPLETED',
+      cancelReason: sale.cancelReason || null
     });
   }
   openModal('modal-receipt');
@@ -325,7 +419,7 @@ async function handleExportCsv() {
   // Generar CSV local
   const summary = cachedSummary || computeOfflineSalesSummary(from, to);
   const rows = [
-    ['ID_Factura', 'Fecha_Hora', 'Tipo_Venta', 'Mesa', 'Metodo_Pago', 'Subtotal_COP', 'Impoconsumo_COP', 'Propina_COP', 'Total_COP', 'Productos_Detalle']
+    ['ID_Factura', 'Fecha_Hora', 'Estado', 'Tipo_Venta', 'Mesa', 'Metodo_Pago', 'Subtotal_COP', 'Impoconsumo_COP', 'Propina_COP', 'Total_COP', 'Productos_Detalle']
   ];
 
   (summary.history || []).forEach(s => {
@@ -333,6 +427,7 @@ async function handleExportCsv() {
     rows.push([
       s.invoiceNumber || s.id,
       formatDateTimeCO(s.createdAt),
+      s.status || 'COMPLETED',
       s.tableNumber ? 'Mesa' : 'Express',
       s.tableNumber ? `Mesa ${s.tableNumber}` : 'Mostrador',
       s.paymentMethod || 'CASH',
@@ -355,13 +450,13 @@ function computeOfflineSalesSummary(from, to) {
   const allInvoices = db.invoices || [];
 
   const history = allInvoices.slice().reverse();
-  const totalSalesCount = history.length;
-  const totalRevenueCOP = history.reduce((acc, h) => acc + (h.totalCOP || 0), 0);
+  const totalSalesCount = history.filter(h => h.status !== 'CANCELLED').length;
+  const totalRevenueCOP = history.filter(h => h.status !== 'CANCELLED').reduce((acc, h) => acc + (h.totalCOP || 0), 0);
 
   const productAgg = {};
   let totalUnitsSold = 0;
 
-  history.forEach(h => {
+  history.filter(h => h.status !== 'CANCELLED').forEach(h => {
     (h.items || []).forEach(it => {
       totalUnitsSold += (it.quantity || 1);
       const name = it.productName || 'Producto';
@@ -378,7 +473,7 @@ function computeOfflineSalesSummary(from, to) {
   const averageTicketCOP = totalSalesCount > 0 ? Math.round(totalRevenueCOP / totalSalesCount) : 0;
 
   const salesByPaymentMethod = {};
-  history.forEach(h => {
+  history.filter(h => h.status !== 'CANCELLED').forEach(h => {
     const m = h.paymentMethod || 'CASH';
     if (!salesByPaymentMethod[m]) {
       salesByPaymentMethod[m] = { count: 0, totalCOP: 0 };
@@ -398,3 +493,4 @@ function computeOfflineSalesSummary(from, to) {
     history
   };
 }
+

@@ -185,8 +185,11 @@ export function renderThermalReceipt({
   hasTip = false,
   totalCOP = 0,
   paymentMethod = 'CASH',
+  payments = null,
   cashReceived = null,
-  cashChange = null
+  cashChange = null,
+  status = 'COMPLETED',
+  cancelReason = null
 }) {
   const businessName = tenant.name || 'HERA POS';
   const businessNit = tenant.nit || 'NIT: 900.876.543-1';
@@ -195,11 +198,21 @@ export function renderThermalReceipt({
 
   const paymentLabels = {
     CASH: '💵 Efectivo',
-    CARD: '💳 Tarjeta Débito / Crédito',
+    CARD: '💳 Tarjeta / Datáfono',
     NEQUI: '📱 Nequi',
     DAVIPLATA: '📲 Daviplata',
-    TRANSFER: '🏦 Transferencia'
+    TRANSFER: '🏦 Transferencia',
+    MIXED: '🔀 Pago Combinado'
   };
+
+  const isCancelled = status === 'CANCELLED';
+
+  const cancelledBanner = isCancelled ? `
+    <div class="p-2.5 mb-2 rounded-xl bg-rose-100 dark:bg-rose-950/70 border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-center font-extrabold text-xs tracking-wider uppercase">
+      <div>🚫 VENTA ANULADA</div>
+      ${cancelReason ? `<div class="text-[10px] font-medium lowercase tracking-normal italic mt-0.5">Motivo: ${escapeHtml(cancelReason)}</div>` : ''}
+    </div>
+  ` : '';
 
   const paymentText = paymentLabels[paymentMethod] || paymentMethod || '💵 Efectivo';
 
@@ -212,7 +225,7 @@ export function renderThermalReceipt({
     const notes = it.notes ? `<div class="text-[10px] text-slate-500 font-sans italic pl-2">Nota: ${escapeHtml(it.notes)}</div>` : '';
 
     return `
-      <div class="py-1 border-b border-slate-200 dark:border-slate-800">
+      <div class="py-1 border-b border-slate-200 dark:border-slate-800 ${isCancelled ? 'line-through opacity-70' : ''}">
         <div class="flex items-start justify-between gap-1">
           <span class="font-bold flex-1">${qty}x ${escapeHtml(name)}</span>
           <span class="font-bold whitespace-nowrap">${formatCOP(lineTotal)}</span>
@@ -237,12 +250,40 @@ export function renderThermalReceipt({
     </div>
   ` : '';
 
-  const cashDetail = (paymentMethod === 'CASH' && cashReceived !== null && cashReceived >= totalCOP) ? `
-    <div class="pt-1.5 border-t border-dashed border-slate-300 dark:border-slate-700 text-[11px] space-y-0.5">
-      <div class="flex justify-between text-slate-600 dark:text-slate-400">
-        <span>Dinero Recibido:</span>
-        <span class="font-bold">${formatCOP(cashReceived)}</span>
+  // Desglose de múltiples pagos o pago único
+  let paymentsHtml = '';
+  if (Array.isArray(payments) && payments.length > 1) {
+    paymentsHtml = `
+      <div class="pt-1.5 border-t border-dashed border-slate-300 dark:border-slate-700 space-y-1 text-[11px]">
+        <div class="font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+          <span>Desglose de Pago Mixto:</span>
+          <span>(${payments.length} métodos)</span>
+        </div>
+        ${payments.map(p => `
+          <div class="flex justify-between text-slate-600 dark:text-slate-400">
+            <span>${paymentLabels[p.method] || p.method}:</span>
+            <span class="font-mono font-bold">${formatCOP(p.amountCOP)}</span>
+          </div>
+        `).join('')}
       </div>
+    `;
+  } else {
+    paymentsHtml = `
+      <div class="flex justify-between text-[11px] text-slate-600 dark:text-slate-400 pt-1">
+        <span>Medio de Pago:</span>
+        <span class="font-bold">${escapeHtml(paymentText)}</span>
+      </div>
+    `;
+  }
+
+  const showCashDetail = (paymentMethod === 'CASH' && cashReceived !== null && cashReceived >= totalCOP) || (Number(cashChange) > 0);
+  const cashDetail = showCashDetail ? `
+    <div class="pt-1.5 border-t border-dashed border-slate-300 dark:border-slate-700 text-[11px] space-y-0.5">
+      ${cashReceived !== null ? `
+      <div class="flex justify-between text-slate-600 dark:text-slate-400">
+        <span>${paymentMethod === 'MIXED' ? 'Efectivo Entregado:' : 'Dinero Recibido:'}</span>
+        <span class="font-bold">${formatCOP(cashReceived)}</span>
+      </div>` : ''}
       <div class="flex justify-between text-emerald-600 dark:text-emerald-400 font-bold">
         <span>Cambio / Devuelta:</span>
         <span>${formatCOP(cashChange !== null ? cashChange : (cashReceived - totalCOP))}</span>
@@ -251,6 +292,7 @@ export function renderThermalReceipt({
   ` : '';
 
   return `
+    ${cancelledBanner}
     <div class="text-center space-y-1 pb-3 border-b border-dashed border-slate-300 dark:border-slate-700">
       <h4 class="text-base font-extrabold uppercase tracking-tight text-slate-900 dark:text-white">${escapeHtml(businessName)}</h4>
       <p class="text-[11px] text-slate-500">${escapeHtml(businessNit)}</p>
@@ -300,15 +342,12 @@ export function renderThermalReceipt({
       ${taxRow}
       ${tipRow}
 
-      <div class="flex justify-between text-base font-extrabold text-slate-900 dark:text-white pt-1.5 border-t border-slate-300 dark:border-slate-700">
+      <div class="flex justify-between text-base font-extrabold ${isCancelled ? 'text-rose-600 line-through' : 'text-slate-900 dark:text-white'} pt-1.5 border-t border-slate-300 dark:border-slate-700">
         <span>TOTAL COP:</span>
-        <span class="font-mono text-emerald-600 dark:text-emerald-400">${formatCOP(totalCOP)}</span>
+        <span class="font-mono ${isCancelled ? 'text-rose-600' : 'text-emerald-600 dark:text-emerald-400'}">${formatCOP(totalCOP)}</span>
       </div>
 
-      <div class="flex justify-between text-[11px] text-slate-600 dark:text-slate-400 pt-1">
-        <span>Medio de Pago:</span>
-        <span class="font-bold">${escapeHtml(paymentText)}</span>
-      </div>
+      ${paymentsHtml}
       ${cashDetail}
     </div>
 

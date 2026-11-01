@@ -100,6 +100,13 @@ function guardIfAuthenticatedModule(moduleKeys) {
     if (!req.user || req.user.role === 'SUPER_ADMIN') {
       return next();
     }
+    if (req.tenant && req.tenant.isSubscriptionExpired && req.tenant.isSubscriptionExpired()) {
+      return res.status(403).json({
+        error: 'La suscripción de este negocio ha vencido. Contacta al administrador de HERA para renovar tu plan.',
+        code: 'SUBSCRIPTION_EXPIRED',
+        subscriptionEndsAt: req.tenant.subscriptionEndsAt
+      });
+    }
     const enabledModules = req.tenant?.enabledModules || {};
     const keys = Array.isArray(moduleKeys) ? moduleKeys : [moduleKeys];
     const isAllowed = keys.some(k => Boolean(enabledModules[k]));
@@ -142,6 +149,7 @@ app.get('/api/auth/me', authenticate, AuthController.me);
 // --- PANEL CEO SAAS (SUPER ADMIN) ---
 app.get('/api/ceo/tenants', authenticate, requireSuperAdmin, CeoController.getTenants);
 app.post('/api/ceo/tenants', authenticate, requireSuperAdmin, CeoController.createTenant);
+app.post('/api/ceo/tenants/:id/renew', authenticate, requireSuperAdmin, CeoController.renewSubscription);
 app.patch('/api/ceo/tenants/:id', authenticate, requireSuperAdmin, CeoController.updateTenant);
 app.patch('/api/ceo/tenants/:id/modules', authenticate, requireSuperAdmin, CeoController.updateModules);
 app.patch('/api/ceo/tenants/:id/credentials', authenticate, requireSuperAdmin, CeoController.updateCredentials);
@@ -150,6 +158,7 @@ app.delete('/api/ceo/tenants/:id', authenticate, requireSuperAdmin, CeoControlle
 // --- ANALÍTICA DE VENTAS & EXPORTACIÓN CSV ---
 app.get('/api/sales/summary', authenticate, requireModule('sales'), SalesController.getSummary);
 app.get('/api/sales/export.csv', authenticate, requireModule('sales'), SalesController.exportCsv);
+app.post('/api/sales/:id/cancel', authenticate, requireModule('sales'), SalesController.cancelSale);
 
 // --- RUTAS DE MESAS & ZONAS (CRUD) ---
 app.use('/api/tables', guardIfAuthenticatedModule(['tables', 'pos', 'billing']));
@@ -229,6 +238,7 @@ app.get('/api/products/:id', InventoryController.getProductById);
 app.post('/api/products', InventoryController.createProduct);
 app.put('/api/products/:id', InventoryController.updateProduct);
 app.delete('/api/products/:id', InventoryController.deleteProduct);
+app.patch('/api/products/:id/stock', guardIfAuthenticatedModule(['inventory']), InventoryController.adjustProductStock);
 
 // --- RUTAS DE INVENTARIO Y MENÚ ---
 app.get('/api/inventory/ingredients', InventoryController.getIngredients);

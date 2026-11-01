@@ -39,6 +39,7 @@ class CeoController {
           ...tenant.toPublic(),
           usersCount,
           salesCount,
+          totalSalesCount: salesCount,
           totalRevenueCOP,
           adminEmail: adminUser?.email || null,
           adminName: adminUser?.name || null
@@ -64,6 +65,9 @@ class CeoController {
         nit,
         address,
         businessType,
+        planName,
+        monthlyFeeCOP,
+        subscriptionEndsAt,
         enabledModules,
         taxConfig,
         adminEmail,
@@ -96,6 +100,9 @@ class CeoController {
           nit,
           address,
           businessType: businessType || 'RESTAURANT',
+          planName: planName || 'PRO',
+          monthlyFeeCOP: monthlyFeeCOP !== undefined ? Number(monthlyFeeCOP) : 0,
+          subscriptionEndsAt: subscriptionEndsAt || null,
           enabledModules,
           taxConfig
         }, txDb);
@@ -303,6 +310,44 @@ class CeoController {
       return res.json({ success: true, message: `Restaurante '${tenant.name}' eliminado exitosamente.` });
     } catch (err) {
       return res.status(500).json({ error: 'Error al eliminar tenant: ' + err.message });
+    }
+  }
+
+  /**
+   * Renueva la suscripción de un restaurante por N meses.
+   */
+  static async renewSubscription(req, res) {
+    try {
+      const db = req.db || getDatabase();
+      const { id } = req.params;
+      const months = Math.min(24, Math.max(1, parseInt(req.body?.months || 1, 10) || 1));
+
+      const tenant = await Tenant.findById(id, db);
+      if (!tenant) {
+        return res.status(404).json({ error: 'Restaurante no encontrado.' });
+      }
+
+      const now = Date.now();
+      const currentExpiry = tenant.subscriptionEndsAt ? new Date(tenant.subscriptionEndsAt).getTime() : 0;
+      const baseDate = currentExpiry > now ? new Date(tenant.subscriptionEndsAt) : new Date();
+
+      baseDate.setMonth(baseDate.getMonth() + months);
+      const newEndsAt = baseDate.toISOString();
+
+      const updated = await Tenant.update(id, {
+        subscriptionEndsAt: newEndsAt,
+        isActive: true
+      }, db);
+
+      eventService.broadcast(eventService.EVENT_TYPES.TENANT_UPDATED, updated.toPublic());
+
+      return res.json({
+        success: true,
+        message: 'Suscripción renovada exitosamente',
+        tenant: updated.toPublic()
+      });
+    } catch (err) {
+      return res.status(500).json({ error: 'Error al renovar suscripción: ' + err.message });
     }
   }
 }

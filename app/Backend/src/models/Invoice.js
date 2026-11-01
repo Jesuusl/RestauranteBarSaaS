@@ -19,6 +19,9 @@ class Invoice {
     this.totalCOP = Number(data.totalCOP ?? data.totalcop ?? 0);
     this.splitType = data.splitType || data.splittype || 'SINGLE'; // SINGLE | EQUAL | ITEMS
     this.status = data.status || 'PAID'; // DRAFT | PAID | CANCELLED
+    this.cancelReason = data.cancelReason || data.cancelreason || null;
+    this.cancelledAt = data.cancelledAt || data.cancelledat || null;
+    this.cancelledBy = data.cancelledBy || data.cancelledby || null;
     this.createdAt = data.createdAt || data.createdat || new Date().toISOString();
 
     this.payments = (data.payments || []).map(p => ({
@@ -54,8 +57,9 @@ class Invoice {
       INSERT INTO invoices (
         id, tenantId, sessionId, tableId, saleType, customerNote, cashierName,
         subtotalCOP, impoconsumoRate, impoconsumoCOP,
-        ivaRate, ivaCOP, tipRate, tipCOP, totalCOP, splitType, status, createdAt
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+        ivaRate, ivaCOP, tipRate, tipCOP, totalCOP, splitType, status,
+        cancelReason, cancelledAt, cancelledBy, createdAt
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
       ON CONFLICT (id) DO UPDATE SET
         tenantId = EXCLUDED.tenantId,
         sessionId = EXCLUDED.sessionId,
@@ -73,6 +77,9 @@ class Invoice {
         totalCOP = EXCLUDED.totalCOP,
         splitType = EXCLUDED.splitType,
         status = EXCLUDED.status,
+        cancelReason = EXCLUDED.cancelReason,
+        cancelledAt = EXCLUDED.cancelledAt,
+        cancelledBy = EXCLUDED.cancelledBy,
         createdAt = EXCLUDED.createdAt
     `, [
       invoice.id,
@@ -92,6 +99,9 @@ class Invoice {
       invoice.totalCOP,
       invoice.splitType,
       invoice.status,
+      invoice.cancelReason,
+      invoice.cancelledAt,
+      invoice.cancelledBy,
       invoice.createdAt
     ]);
 
@@ -223,6 +233,23 @@ class Invoice {
       paymentData.createdAt || new Date().toISOString()
     ]);
     return await Invoice.findById(invoiceId, db);
+  }
+
+  static async cancel(id, { reason, cancelledBy }, customDb) {
+    const db = customDb || getDatabase();
+    const existing = await Invoice.findById(id, db);
+    if (!existing) return null;
+
+    const cancelledAt = new Date().toISOString();
+    const cBy = cancelledBy || 'Administrador';
+
+    await db.query(`
+      UPDATE invoices
+      SET status = 'CANCELLED', cancelReason = $1, cancelledAt = $2, cancelledBy = $3
+      WHERE id = $4
+    `, [reason, cancelledAt, cBy, id]);
+
+    return await Invoice.findById(id, db);
   }
 }
 

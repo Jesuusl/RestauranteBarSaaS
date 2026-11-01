@@ -53,6 +53,14 @@ async function authenticate(req, res, next) {
         return res.status(403).json({ error: 'La cuenta de este restaurante está suspendida o inactiva.' });
       }
 
+      if (tenant.isSubscriptionExpired()) {
+        return res.status(403).json({
+          error: 'La suscripción de este negocio ha vencido. Contacta al administrador de HERA para renovar tu plan.',
+          code: 'SUBSCRIPTION_EXPIRED',
+          subscriptionEndsAt: tenant.subscriptionEndsAt
+        });
+      }
+
       req.tenant = tenant;
       req.tenantId = user.tenantId;
     }

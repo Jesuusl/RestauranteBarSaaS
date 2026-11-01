@@ -67,8 +67,12 @@ async function seedDatabase(customDb, options = {}) {
       pos: true,
       kds: true,
       billing: true,
-      shifts: true
+      shifts: true,
+      inventory: true
     },
+    planName: 'PRO',
+    monthlyFeeCOP: 150000,
+    subscriptionEndsAt: new Date(Date.now() + 30 * 86400000).toISOString(),
     taxConfig: {
       applyImpoconsumo: true,
       impoconsumoRate: 0.08,
@@ -94,8 +98,12 @@ async function seedDatabase(customDb, options = {}) {
       pos: false,
       kds: false,
       billing: false,
-      shifts: false
+      shifts: false,
+      inventory: false
     },
+    planName: 'PRO',
+    monthlyFeeCOP: 80000,
+    subscriptionEndsAt: new Date(Date.now() + 30 * 86400000).toISOString(),
     taxConfig: {
       applyImpoconsumo: false,
       impoconsumoRate: 0.08,

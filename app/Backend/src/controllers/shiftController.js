@@ -6,13 +6,23 @@ class ShiftController {
     try {
       const db = req.db || getDatabase();
       const tenantId = req.tenantId || req.tenant?.id || req.body.tenantId || 'tenant-default';
-      const { shiftNumber, cashierId, cashierName, notes } = req.body;
+      const { shiftNumber, notes } = req.body;
+
+      const rawInitial = req.body.initialCashCOP ?? req.body.cashInitialCOP;
+      const initialCashCOP = rawInitial !== undefined ? Number(rawInitial) : 0;
+      if (isNaN(initialCashCOP) || initialCashCOP < 0) {
+        return res.status(400).json({ error: 'La base inicial en efectivo debe ser un número mayor o igual a 0.' });
+      }
+
+      const cashierId = req.body.cashierId || req.user?.id || 'usr-cajero';
+      const cashierName = req.body.cashierName || req.user?.name || 'Cajero Principal';
 
       const shift = await ShiftAudit.openShift({
         tenantId,
         shiftNumber: shiftNumber || 1,
         cashierId,
         cashierName,
+        initialCashCOP,
         notes
       }, db);
       return res.status(201).json(shift);
