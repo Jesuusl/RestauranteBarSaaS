@@ -15,6 +15,12 @@ export function setupAuth({ onLoginSuccess, onLogout }) {
   const alertBox = document.getElementById('login-error-alert');
   const alertText = alertBox ? alertBox.querySelector('.login-error-text') : null;
 
+  const triggerLogin = () => {
+    const email = emailInput ? emailInput.value.trim() : '';
+    const pass = passInput ? passInput.value : '';
+    handleLogin(email, pass);
+  };
+
   // Botones de acceso rápido si existen en la interfaz
   const demoButtons = document.querySelectorAll('[data-demo-email]');
   demoButtons.forEach(btn => {
@@ -27,14 +33,33 @@ export function setupAuth({ onLoginSuccess, onLogout }) {
     });
   });
 
+  // Listener directo al botón de submit
+  if (btnSubmit) {
+    btnSubmit.addEventListener('click', (e) => {
+      e.preventDefault();
+      triggerLogin();
+    });
+  }
+
+  // Listener al formulario
   if (formLogin) {
     formLogin.addEventListener('submit', (e) => {
       e.preventDefault();
-      const email = emailInput ? emailInput.value.trim() : '';
-      const pass = passInput ? passInput.value : '';
-      handleLogin(email, pass);
+      triggerLogin();
     });
   }
+
+  // Soporte directo para tecla Enter en inputs
+  [emailInput, passInput].forEach(inp => {
+    if (inp) {
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          triggerLogin();
+        }
+      });
+    }
+  });
 
   // Botones de Salir / Logout
   const btnLogout = document.getElementById('btn-logout');
@@ -69,6 +94,9 @@ export function setupAuth({ onLoginSuccess, onLogout }) {
 
         if (res.ok) {
           data = await res.json();
+        } else if (res.status === 401 || res.status === 400) {
+          const errRes = await res.json().catch(() => ({}));
+          throw new Error(errRes.error || 'Credenciales inválidas');
         } else if (res.status === 404 || res.status >= 502) {
           // Manejar reinicio/cold-start de Render con fallback local seguro
           const offlineDb = initOfflineDb();
@@ -99,10 +127,23 @@ export function setupAuth({ onLoginSuccess, onLogout }) {
         showToast(`¡Bienvenido, ${data.user.name}!`, 'success');
         hideLoginError();
 
-        routeToRoleScreen(data.user, data.tenant);
+        try {
+          routeToRoleScreen(data.user, data.tenant);
+        } catch (routeErr) {
+          console.error('[HERA Auth] Error en ruta de pantalla:', routeErr);
+          if (data.user.role === 'SUPER_ADMIN') {
+            switchScreen('ceo-screen');
+          } else {
+            switchScreen('pos-app-screen');
+          }
+        }
 
         if (typeof onLoginSuccess === 'function') {
-          onLoginSuccess(data.user, data.tenant);
+          try {
+            onLoginSuccess(data.user, data.tenant);
+          } catch (cbErr) {
+            console.error('[HERA Auth] Error en callback onLoginSuccess:', cbErr);
+          }
         }
       }
     } catch (err) {

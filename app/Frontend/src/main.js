@@ -18,40 +18,59 @@ import { setupCatalogModule, loadCatalogProducts, openNewProductModal } from './
 import { setupShiftsModule, loadActiveShift } from './modules/shifts.js';
 import { showToast } from './utils.js';
 
-document.addEventListener('DOMContentLoaded', () => {
-  initLiveClock();
-  setupBackendConfigModal(() => {
-    initAppSSE();
-    reloadAllRestaurantData();
-  });
+function initApp() {
+  console.log('[HERA] Iniciando aplicación SPA...');
+
+  try {
+    initLiveClock();
+  } catch (e) {
+    console.warn('initLiveClock error:', e);
+  }
+
+  try {
+    setupBackendConfigModal(() => {
+      initAppSSE();
+      reloadAllRestaurantData();
+    });
+  } catch (e) {
+    console.warn('setupBackendConfigModal error:', e);
+  }
 
   // 1. Inicializar Módulos con Callbacks Cruzados
-  setupAuth({
-    onLoginSuccess: (user, tenant) => {
-      if (user.role === 'SUPER_ADMIN') {
-        loadCeoData();
-      } else {
-        const firstView = applyModularNavigation(tenant?.enabledModules || {});
+  try {
+    setupAuth({
+      onLoginSuccess: (user, tenant) => {
+        if (user.role === 'SUPER_ADMIN') {
+          loadCeoData();
+        } else {
+          const firstView = applyModularNavigation(tenant?.enabledModules || {});
+          reloadAllRestaurantData();
+          switchView(firstView || 'view-express');
+        }
+      },
+      onLogout: () => {
+        // Estado limpiado por auth.js
+      }
+    });
+  } catch (e) {
+    console.error('setupAuth error:', e);
+  }
+
+  try {
+    setupCeoDashboard({
+      onImpersonateTenant: (tenant) => {
+        state.currentTenant = tenant;
+        routeToRoleScreen(state.currentUser, tenant, { impersonate: true });
+        initAppSSE();
+        const firstView = applyModularNavigation(tenant.enabledModules || {});
         reloadAllRestaurantData();
         switchView(firstView || 'view-express');
+        showToast(`Operando en: ${tenant.name}`, 'info');
       }
-    },
-    onLogout: () => {
-      // Estado limpiado por auth.js
-    }
-  });
-
-  setupCeoDashboard({
-    onImpersonateTenant: (tenant) => {
-      state.currentTenant = tenant;
-      routeToRoleScreen(state.currentUser, tenant, { impersonate: true });
-      initAppSSE();
-      const firstView = applyModularNavigation(tenant.enabledModules || {});
-      reloadAllRestaurantData();
-      switchView(firstView || 'view-express');
-      showToast(`Operando en: ${tenant.name}`, 'info');
-    }
-  });
+    });
+  } catch (e) {
+    console.error('setupCeoDashboard error:', e);
+  }
 
   const btnBackToCeo = document.getElementById('btn-back-to-ceo');
   if (btnBackToCeo) {
@@ -64,74 +83,124 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  setupExpressPos({
-    onSaleCompleted: () => {
-      loadSalesSummary();
-    },
-    onOpenProductModal: () => {
-      openNewProductModal();
-    }
-  });
+  try {
+    setupExpressPos({
+      onSaleCompleted: () => {
+        loadSalesSummary();
+      },
+      onOpenProductModal: () => {
+        openNewProductModal();
+      }
+    });
+  } catch (e) {
+    console.error('setupExpressPos error:', e);
+  }
 
-  setupSalesModule();
+  try {
+    setupSalesModule();
+  } catch (e) {
+    console.error('setupSalesModule error:', e);
+  }
 
-  setupTablesModule({
-    onNavigateToPos: (tableId) => {
-      switchView('view-pos');
-      populatePosTableSelect();
-    },
-    onNavigateToBilling: (tableId) => {
-      switchView('view-billing');
-      populateBillingSelect(tableId);
-    }
-  });
+  try {
+    setupTablesModule({
+      onNavigateToPos: (tableId) => {
+        switchView('view-pos');
+        populatePosTableSelect();
+      },
+      onNavigateToBilling: (tableId) => {
+        switchView('view-billing');
+        populateBillingSelect(tableId);
+      }
+    });
+  } catch (e) {
+    console.error('setupTablesModule error:', e);
+  }
 
-  setupPosModule({
-    onOrderSubmitted: () => {
-      loadKdsOrders();
-      loadTables();
-    }
-  });
+  try {
+    setupPosModule({
+      onOrderSubmitted: () => {
+        loadKdsOrders();
+        loadTables();
+      }
+    });
+  } catch (e) {
+    console.error('setupPosModule error:', e);
+  }
 
-  setupKdsModule();
+  try {
+    setupKdsModule();
+  } catch (e) {
+    console.error('setupKdsModule error:', e);
+  }
 
-  setupBillingModule({
-    onCheckoutCompleted: () => {
-      loadTables();
-      loadSalesSummary();
-    }
-  });
+  try {
+    setupBillingModule({
+      onCheckoutCompleted: () => {
+        loadTables();
+        loadSalesSummary();
+      }
+    });
+  } catch (e) {
+    console.error('setupBillingModule error:', e);
+  }
 
-  setupCatalogModule({
-    onCatalogChanged: (products) => {
-      loadExpressCatalog(products);
-    }
-  });
+  try {
+    setupCatalogModule({
+      onCatalogChanged: (products) => {
+        loadExpressCatalog(products);
+      }
+    });
+  } catch (e) {
+    console.error('setupCatalogModule error:', e);
+  }
 
-  setupShiftsModule();
+  try {
+    setupShiftsModule();
+  } catch (e) {
+    console.error('setupShiftsModule error:', e);
+  }
 
   // 2. Navegación SPA por pestañas
-  setupNavigationTabs();
+  try {
+    setupNavigationTabs();
+  } catch (e) {
+    console.error('setupNavigationTabs error:', e);
+  }
 
   // 3. Conectar Servidor SSE
-  initAppSSE();
+  try {
+    initAppSSE();
+  } catch (e) {
+    console.warn('initAppSSE error:', e);
+  }
 
   // 4. Verificación de sesión activa
-  checkAuthSession({
-    onSessionValid: (user, tenant) => {
-      if (user.role === 'SUPER_ADMIN') {
-        loadCeoData();
-      } else {
-        const firstView = applyModularNavigation(tenant?.enabledModules || {});
-        reloadAllRestaurantData();
-        switchView(firstView || 'view-express');
+  try {
+    checkAuthSession({
+      onSessionValid: (user, tenant) => {
+        if (user.role === 'SUPER_ADMIN') {
+          loadCeoData();
+        } else {
+          const firstView = applyModularNavigation(tenant?.enabledModules || {});
+          reloadAllRestaurantData();
+          switchView(firstView || 'view-express');
+        }
+      },
+      onSessionInvalid: () => {
+        // Regresa a auth-screen
       }
-    },
-    onSessionInvalid: () => {
-      // Regresa a auth-screen
-    }
-  });
-});
+    });
+  } catch (e) {
+    console.error('checkAuthSession error:', e);
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
 
 /**
  * Reloj Digital en Vivo (Zona horaria Colombia)

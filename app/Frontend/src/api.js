@@ -10,14 +10,26 @@ import { showToast, openModal, closeModal } from './utils.js';
 export const DEFAULT_PROD_API_URL = 'https://restaurante-bar-backend.onrender.com';
 
 export function getApiBase() {
-  const custom = localStorage.getItem('comanda_api_url');
+  let custom = null;
+  try {
+    custom = localStorage.getItem('comanda_api_url');
+  } catch (_) {}
+
   if (custom && custom.trim()) {
-    return custom.trim().replace(/\/+$/, '');
+    const trimmed = custom.trim().replace(/\/+$/, '');
+    // Si estamos en un dominio en vivo (como vercel.app) y el valor apunta a localhost, descartarlo
+    if (typeof window !== 'undefined' && window.location && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      if (trimmed.includes('localhost') || trimmed.includes('127.0.0.1')) {
+        try { localStorage.removeItem('comanda_api_url'); } catch (_) {}
+        return DEFAULT_PROD_API_URL;
+      }
+    }
+    return trimmed;
   }
-  if (window.ENV_API_URL && typeof window.ENV_API_URL === 'string' && window.ENV_API_URL.trim()) {
+  if (typeof window !== 'undefined' && window.ENV_API_URL && typeof window.ENV_API_URL === 'string' && window.ENV_API_URL.trim()) {
     return window.ENV_API_URL.trim().replace(/\/+$/, '');
   }
-  return (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  return (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
     ? 'http://localhost:3001'
     : DEFAULT_PROD_API_URL;
 }
