@@ -4,9 +4,9 @@
  * sincronización SSE y orquestación de módulos independientes.
  */
 
-import { state, setState } from './state.js';
+import { state, setState, saveAuthSession } from './state.js';
 import { initSSE, setupBackendConfigModal } from './api.js';
-import { setupAuth, checkAuthSession, applyModularNavigation, routeToRoleScreen, saveAuthSession } from './modules/auth.js';
+import { setupAuth, checkAuthSession, applyModularNavigation, routeToRoleScreen } from './modules/auth.js';
 import { setupCeoDashboard, loadCeoData } from './modules/ceo.js';
 import { setupExpressPos, loadExpressCatalog } from './modules/expressPos.js';
 import { setupSalesModule, loadSalesSummary } from './modules/sales.js';

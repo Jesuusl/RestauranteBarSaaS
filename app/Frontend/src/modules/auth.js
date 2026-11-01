@@ -7,6 +7,8 @@ import { state, saveAuthSession, clearAuthSession, initOfflineDb } from '../stat
 import { apiFetch } from '../api.js';
 import { showToast, escapeHtml } from '../utils.js';
 
+export { saveAuthSession, clearAuthSession };
+
 export function setupAuth({ onLoginSuccess, onLogout }) {
   const formLogin = document.getElementById('form-login');
   const btnSubmit = document.getElementById('btn-login-submit');
